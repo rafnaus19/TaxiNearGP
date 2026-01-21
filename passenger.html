@@ -66,20 +66,24 @@ if(navigator.geolocation){
 const driversRef = database.ref("drivers");
 driversRef.on("value",(snapshot)=>{
   const drivers = snapshot.val();
-  // remove missing
+  // remove markers no longer in DB
   for(let id in driversMarkers) if(!drivers || !drivers[id]){
     map.removeLayer(driversMarkers[id]);
     delete driversMarkers[id];
   }
+
   if(drivers){
     for(let id in drivers){
       const d=drivers[id];
+      // only show online drivers
+      if(d.status !== "vacant") continue;
+
       if(driversMarkers[id]){
         driversMarkers[id].setLatLng([d.lat,d.lng]);
       } else {
-        const marker=L.marker([d.lat,d.lng]).addTo(map);
+        const marker = L.marker([d.lat,d.lng]).addTo(map);
         marker.bindPopup(`<b>Driver ID:</b> ${id}<br>
-        <button onclick="hailDriver('${id}',${d.lat},${d.lng})">Hail Taxi</button>`);
+          <button onclick="hailDriver('${id}',${d.lat},${d.lng})">Hail Taxi</button>`);
         driversMarkers[id]=marker;
       }
     }

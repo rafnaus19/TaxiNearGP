@@ -30,6 +30,9 @@ function goOnline() {
   document.getElementById("status").innerText = "Status: ONLINE (TRACKING)";
   if(!navigator.geolocation) return alert("Geolocation not supported!");
 
+  const driverRef = database.ref("drivers/" + driverId);
+  driverRef.onDisconnect().remove(); // automatically remove if disconnect
+
   watchId = navigator.geolocation.watchPosition(
     (pos)=>{
       const lat = pos.coords.latitude;
@@ -40,8 +43,12 @@ function goOnline() {
         map.setView([lat,lng],15);
       } else driverMarker.setLatLng([lat,lng]);
 
-      database.ref("drivers/"+driverId).update({
-        lat, lng, status:"vacant", updatedAt: Date.now()
+      // Update driver data in database
+      driverRef.set({
+        lat, 
+        lng,
+        status: "vacant",
+        updatedAt: Date.now()
       });
     },
     (err)=>alert("GPS error: "+err.message),
@@ -78,7 +85,7 @@ function listenHails(){
   });
 }
 
-// Listen for route updates
+// Draw route to passenger
 function listenRoute(){
   const targetRef = database.ref("drivers/"+driverId+"/target");
   targetRef.on("value",(snapshot)=>{
