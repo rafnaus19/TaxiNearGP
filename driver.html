@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>TaxiNear – Driver</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { font-family: Arial; margin: 0; padding: 10px; }
+    #map { height: 400px; width: 100%; margin-top: 10px; }
+    button { margin: 5px; padding: 10px 20px; }
+  </style>
+</head>
+<body>
+
+<h2>TaxiNear – Driver</h2>
+<div id="status">Status: OFFLINE</div>
+<button onclick="goOnline()">GO ONLINE</button>
+<button onclick="goOffline()">GO OFFLINE</button>
+<div id="map"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="driver.js"></script>
+
+</body>
+</html>
