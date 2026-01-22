@@ -1,18 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>TaxiNear – Driver</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TaxiNear Driver</title>
 
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
-
 </head>
 <body>
 
-<div id="topBar">
-  <button onclick="goOnline()">GO ONLINE</button>
-  <button onclick="goOffline()">GO OFFLINE</button>
-</div>
+<header>
+  <span id="status">OFFLINE</span>
+  <div>
+    <button onclick="goOnline()">Online</button>
+    <button onclick="goOffline()">Offline</button>
+  </div>
+</header>
 
 <div id="map"></div>
 

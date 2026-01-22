@@ -2,7 +2,9 @@ const driverId = "driver_" + Math.floor(Math.random() * 100000);
 let watchId = null;
 let marker = null;
 
-const map = L.map("map").setView([0, 0], 15);
+const statusEl = document.getElementById("status");
+
+const map = L.map("map").setView([0, 0], 2);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19
@@ -14,10 +16,14 @@ function goOnline() {
     return;
   }
 
+  statusEl.textContent = "REQUESTING GPS...";
+
   watchId = navigator.geolocation.watchPosition(
     pos => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
+
+      statusEl.textContent = "ONLINE";
 
       if (!marker) {
         marker = L.marker([lat, lng]).addTo(map);
@@ -28,19 +34,29 @@ function goOnline() {
       map.setView([lat, lng], 16);
 
       firebase.database().ref("drivers/" + driverId).set({
-        lat,
-        lng,
+        lat: lat,
+        lng: lng,
         online: true,
         time: Date.now()
       });
     },
-    err => alert(err.message),
+    err => {
+      statusEl.textContent = "GPS DENIED";
+      alert(err.message);
+    },
     { enableHighAccuracy: true }
   );
 }
 
 function goOffline() {
   if (watchId) navigator.geolocation.clearWatch(watchId);
+
   firebase.database().ref("drivers/" + driverId).remove();
-  alert("You are OFFLINE");
+
+  if (marker) {
+    map.removeLayer(marker);
+    marker = null;
+  }
+
+  statusEl.textContent = "OFFLINE";
 }

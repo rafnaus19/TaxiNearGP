@@ -1,27 +1,38 @@
-html, body {
-  height: 100%;
-  margin: 0;
-  font-family: Arial, sans-serif;
+* {
+  box-sizing: border-box;
 }
 
-#topBar {
-  height: 70px;
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: system-ui, Arial, sans-serif;
+  overflow: hidden;
+}
+
+header {
+  height: 56px;
   background: #111;
   color: white;
   display: flex;
-  justify-content: space-around;
   align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
 }
 
-button {
-  padding: 10px 14px;
+header span {
+  font-size: 14px;
+}
+
+header button {
+  padding: 6px 10px;
   border: none;
   border-radius: 6px;
   background: #ffcc00;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 #map {
   width: 100%;
-  height: calc(100vh - 70px);
+  height: calc(100vh - 56px);
 }
