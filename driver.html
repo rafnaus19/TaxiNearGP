@@ -1,22 +1,23 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TaxiNear – Driver</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaxiNear Driver</title>
 
-<link rel="stylesheet" href="css/style.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
-
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
-<body>
 
+<body>
 <div class="top-bar">
-  🚕 Driver |
-  Taxi: <span id="taxiNum">Not set</span>
+  <span id="taxiInfo">OFFLINE</span>
+  <button id="toggleBtn">GO ONLINE</button>
 </div>
 
-<div class="controls">
-  <input id="taxiNumber" placeholder="Taxi Number (T12345)">
+<div id="map"></div>
+
+<div class="panel">
+  <input id="taxiNumber" placeholder="Taxi Number (T1234)">
   <input id="seats" type="number" placeholder="Seats">
   <select id="type">
     <option value="regular">Regular</option>
@@ -24,19 +25,12 @@
     <option value="luxury">Luxury</option>
     <option value="wheelchair">Wheelchair</option>
   </select>
-
-  <button id="onlineBtn">GO ONLINE</button>
-  <button id="offlineBtn" class="danger">GO OFFLINE</button>
 </div>
-
-<div id="map"></div>
 
 <audio id="requestSound" src="assets/sounds/request.mp3"></audio>
 <audio id="acceptedSound" src="assets/sounds/accepted.mp3"></audio>
 
-<script src="js/firebase.js"></script>
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="js/driver.js"></script>
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module" src="driver.js"></script>
 </body>
 </html>
