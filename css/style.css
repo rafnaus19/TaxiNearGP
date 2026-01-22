@@ -1,1 +1,26 @@
+html,body{margin:0;height:100%;font-family:sans-serif}
+#map{height:70vh}
 
+.top-bar{
+  padding:10px;
+  background:#111;
+  color:#fff;
+  text-align:center;
+}
+
+.controls{
+  display:flex;
+  gap:5px;
+  padding:5px;
+}
+
+button{
+  flex:1;
+  padding:10px;
+  border:none;
+  background:#28a745;
+  color:white;
+}
+
+button.danger{background:#dc3545}
+input,select{flex:1;padding:8px}
