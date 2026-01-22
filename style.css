@@ -1,0 +1,27 @@
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+#topBar {
+  height: 70px;
+  background: #111;
+  color: white;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+button {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 6px;
+  background: #ffcc00;
+  font-weight: bold;
+}
+
+#map {
+  width: 100%;
+  height: calc(100vh - 70px);
+}

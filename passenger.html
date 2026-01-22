@@ -2,114 +2,24 @@
 <html>
 <head>
   <title>TaxiNear – Passenger</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <style>
-    body,html{margin:0;padding:0;height:100%}
-    #map{height:100%;width:100%}
-    #info{
-      position:absolute;top:10px;left:10px;z-index:1000;
-      background:white;padding:10px;border-radius:5px;box-shadow:0 0 5px #aaa;
-    }
-    button{padding:5px 10px;}
-  </style>
+
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+
 </head>
 <body>
-<div id="info">
-  <div id="status">Status: waiting...</div>
-  <div id="driverInfo"></div>
+
+<div id="topBar">
+  <button>Normal</button>
+  <button>Maxi</button>
+  <button>Luxury</button>
 </div>
+
 <div id="map"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="firebase.js"></script>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="passenger.js"></script>
 
-<script>
-// Firebase
-const firebaseConfig = {
-  apiKey: "AIzaSyApZo_e__tYmNqWIeJA-cXR1oi0GVwWevo",
-  authDomain: "taxinear-23c95.firebaseapp.com",
-  databaseURL: "https://taxinear-23c95-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "taxinear-23c95",
-  storageBucket: "taxinear-23c95.appspot.com",
-  messagingSenderId: "991076256035",
-  appId: "1:991076256035:web:58a88de033307cff60a496"
-};
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
-
-// Auth
-firebase.auth().signInAnonymously().then(()=>console.log("Passenger Auth OK"));
-
-// Map
-let map = L.map('map').fitWorld();
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-  attribution:'&copy; OpenStreetMap contributors'
-}).addTo(map);
-
-let passengerMarker=null;
-let driversMarkers={};
-
-if(navigator.geolocation){
-  navigator.geolocation.getCurrentPosition((pos)=>{
-    const lat=pos.coords.latitude;
-    const lng=pos.coords.longitude;
-    map.setView([lat,lng],15);
-    passengerMarker=L.marker([lat,lng]).addTo(map).bindPopup("You").openPopup();
-    document.getElementById("status").innerText="Status: Ready";
-  },(err)=>alert("GPS error: "+err.message),{enableHighAccuracy:true});
-}
-
-// Listen drivers
-const driversRef = database.ref("drivers");
-driversRef.on("value",(snapshot)=>{
-  const drivers = snapshot.val();
-  // remove markers no longer in DB
-  for(let id in driversMarkers) if(!drivers || !drivers[id]){
-    map.removeLayer(driversMarkers[id]);
-    delete driversMarkers[id];
-  }
-
-  if(drivers){
-    for(let id in drivers){
-      const d=drivers[id];
-      // only show online drivers
-      if(d.status !== "vacant") continue;
-
-      if(driversMarkers[id]){
-        driversMarkers[id].setLatLng([d.lat,d.lng]);
-      } else {
-        const marker = L.marker([d.lat,d.lng]).addTo(map);
-        marker.bindPopup(`<b>Driver ID:</b> ${id}<br>
-          <button onclick="hailDriver('${id}',${d.lat},${d.lng})">Hail Taxi</button>`);
-        driversMarkers[id]=marker;
-      }
-    }
-  }
-});
-
-// Hail
-function hailDriver(driverId,lat,lng){
-  database.ref("drivers/"+driverId+"/hail").set({
-    passengerId:"passenger_"+Math.floor(Math.random()*100000),
-    passengerLat: passengerMarker.getLatLng().lat,
-    passengerLng: passengerMarker.getLatLng().lng,
-    time: Date.now()
-  });
-  document.getElementById("driverInfo").innerText=`Hailed driver ${driverId}! Waiting for acceptance...`;
-
-  // Listen for acceptance
-  const acceptedRef = database.ref("drivers/"+driverId+"/accepted");
-  acceptedRef.on("value",(snapshot)=>{
-    const accepted = snapshot.val();
-    if(accepted){
-      document.getElementById("driverInfo").innerText="Driver accepted! 🚖 On the way";
-      acceptedRef.off(); // stop listening
-    }
-  });
-}
-</script>
 </body>
 </html>
