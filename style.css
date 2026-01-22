@@ -1,48 +1,95 @@
-/* style.css */
-
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  font-family: Arial, sans-serif;
+body, html {
+    margin:0;
+    padding:0;
+    height:100%;
+    font-family: Arial,sans-serif;
 }
 
+/* Map fills remaining screen */
 #map {
-  height: calc(100vh - 90px);
-  width: 100%;
+    width:100%;
+    height:100%;
 }
 
+/* Top bar */
 .top-bar {
-  height: 45px;
-  background: #111;
-  color: white;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 8px;
+    position:fixed;
+    top:0;
+    left:0;
+    right:0;
+    height:50px;
+    background-color:#111;
+    color:white;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:0 10px;
+    z-index:1100;
+    font-size:14px;
 }
 
+/* Top bar button */
 .top-bar button {
-  padding: 6px 12px;
-  border-radius: 5px;
-  border: none;
-  color: white;
+    padding:6px 12px;
+    border-radius:5px;
+    border:none;
+    color:white;
+    background-color:#222;
+    font-size:14px;
+    cursor:pointer;
 }
 
+/* Panel for driver inputs */
 .panel {
-  display: flex;
-  justify-content: space-between;
-  height: 45px;
-  margin: 5px;
+    position: fixed;
+    top:50px;
+    left:5px;
+    right:5px;
+    background: rgba(255,255,255,0.95);
+    padding:5px;
+    border-radius:8px;
+    display:flex;
+    gap:5px;
+    z-index:1050;
+    flex-wrap:wrap;
 }
 
-.panel input, .panel select {
-  flex: 1;
-  margin-right: 5px;
-  padding: 5px;
-  font-size: 14px;
+/* Inputs and select fields */
+.panel input,
+.panel select {
+    flex:1 1 45%;
+    padding:5px;
+    font-size:14px;
+    min-width:70px;
+    box-sizing:border-box;
 }
 
-.marker-popup {
-  font-size: 14px;
+/* Leaflet popup customization */
+.leaflet-popup-content {
+    font-size:14px;
+}
+
+.leaflet-popup-content button {
+    margin-top:5px;
+    padding:6px;
+    width:100%;
+    font-size:14px;
+    border:none;
+    border-radius:5px;
+    background-color:#444;
+    color:white;
+    cursor:pointer;
+}
+
+/* Online status highlight */
+#statusText.online {
+    color:#0f0;
+    font-weight:bold;
+    font-size:16px;
+}
+
+#statusText.offline {
+    color:#f00;
+    font-weight:bold;
+    font-size:16px;
 }
