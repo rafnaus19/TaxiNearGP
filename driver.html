@@ -1,44 +1,42 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TaxiNear Driver</title>
-<link rel="stylesheet" href="style.css">
+<title>TaxiNear – Driver</title>
+
+<link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+
 </head>
 <body>
 
-<header>
-  <span id="status">OFFLINE</span>
-  <div>
-    <button onclick="goOnline()">Online</button>
-    <button onclick="goOffline()">Offline</button>
-    <button onclick="completeRequest()">Complete Ride</button>
-  </div>
-</header>
+<div class="top-bar">
+  🚕 Driver |
+  Taxi: <span id="taxiNum">Not set</span>
+</div>
+
+<div class="controls">
+  <input id="taxiNumber" placeholder="Taxi Number (T12345)">
+  <input id="seats" type="number" placeholder="Seats">
+  <select id="type">
+    <option value="regular">Regular</option>
+    <option value="maxi">Maxi</option>
+    <option value="luxury">Luxury</option>
+    <option value="wheelchair">Wheelchair</option>
+  </select>
+
+  <button id="onlineBtn">GO ONLINE</button>
+  <button id="offlineBtn" class="danger">GO OFFLINE</button>
+</div>
 
 <div id="map"></div>
 
-<div id="vehicleInfo" style="position: fixed; bottom: 10px; left:10px; background:white; padding:10px; z-index:1000; border-radius:8px;">
-  <label>Taxi Number: <input id="taxiNumber" placeholder="T1234"></label><br>
-  <label>Seats: <input type="number" id="seats" value="4" min="1"></label><br>
-  <label>Type:
-    <select id="taxiType">
-      <option value="regular">Regular</option>
-      <option value="maxi">Maxi</option>
-      <option value="luxury">Luxury</option>
-      <option value="wheelchair">Wheelchair</option>
-    </select>
-  </label><br>
-  <button onclick="updateVehicleInfo()">Update Vehicle</button>
-</div>
+<audio id="requestSound" src="assets/sounds/request.mp3"></audio>
+<audio id="acceptedSound" src="assets/sounds/accepted.mp3"></audio>
 
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-<script src="firebase.js"></script>
+<script src="js/firebase.js"></script>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="driver.js"></script>
+<script src="js/driver.js"></script>
 
 </body>
 </html>

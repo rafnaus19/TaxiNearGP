@@ -1,26 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TaxiNear Passenger</title>
-<link rel="stylesheet" href="style.css">
+<title>TaxiNear – Passenger</title>
+
+<link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+
 </head>
 <body>
 
-<header>
-  <span>Nearby Taxis</span>
-  <span id="count">0</span>
-</header>
+<div class="top-bar">
+  🚖 Find Taxi
+</div>
+
+<div class="controls">
+  <button id="hailBtn">REQUEST TAXI</button>
+  <button id="cancelBtn" class="danger">CANCEL</button>
+</div>
 
 <div id="map"></div>
 
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-<script src="firebase.js"></script>
+<script src="js/firebase.js"></script>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="passenger.js"></script>
+<script src="js/passenger.js"></script>
 
 </body>
 </html>
