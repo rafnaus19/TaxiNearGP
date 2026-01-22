@@ -7,17 +7,90 @@
 
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: Arial, sans-serif;
+}
+
+/* Map full remaining screen */
+#map {
+  position: absolute;
+  top: 110px; /* below top bar + panel */
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 0;
+}
+
+/* Top bar fixed */
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  background: #111;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 8px;
+  z-index: 1100;
+}
+
+.top-bar button {
+  padding: 6px 12px;
+  border-radius: 5px;
+  border: none;
+  color: white;
+  background-color: #222;
+  font-size: 14px;
+}
+
+/* Floating taxi input panel */
+.panel {
+  position: fixed;
+  top: 50px; /* below top bar */
+  left: 5px;
+  right: 5px;
+  background: rgba(255,255,255,0.95);
+  padding: 5px;
+  border-radius: 8px;
+  display: flex;
+  gap: 5px;
+  z-index: 1050;
+  flex-wrap: wrap; /* wrap inputs on small screens */
+}
+
+.panel input, .panel select {
+  flex: 1 1 45%; /* responsive width */
+  padding: 5px;
+  font-size: 14px;
+  min-width: 70px;
+  box-sizing: border-box;
+}
+
+/* Make marker popup text readable */
+.leaflet-popup-content {
+  font-size: 14px;
+}
+</style>
 </head>
 
 <body>
+
+<!-- Top status bar -->
 <div class="top-bar">
   <span id="statusText">OFFLINE</span>
   <span id="taxiInfo">Taxi: N/A</span>
-  <button id="toggleBtn" class="offline">GO ONLINE</button>
+  <button id="toggleBtn">GO ONLINE</button>
 </div>
 
-<div id="map"></div>
-
+<!-- Floating input panel -->
 <div class="panel">
   <input id="taxiNumber" placeholder="Taxi Number (T1234)">
   <input id="seats" type="number" placeholder="Seats">
@@ -29,12 +102,18 @@
   </select>
 </div>
 
+<!-- Map container -->
+<div id="map"></div>
+
+<!-- Sounds -->
 <audio id="requestSound" src="assets/sounds/request.mp3"></audio>
 <audio id="acceptedSound" src="assets/sounds/accepted.mp3"></audio>
 
+<!-- Scripts -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js"></script>
 <script src="driver.js"></script>
+
 </body>
 </html>
