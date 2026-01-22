@@ -9,72 +9,31 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <style>
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  font-family: Arial, sans-serif;
-}
-
-/* Map fills remaining viewport */
-#map {
-  position: absolute;
-  top: 50px; /* leave space for top bar */
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 0;
-}
-
-/* Top bar fixed */
+html, body { margin:0; padding:0; height:100%; font-family:Arial, sans-serif; }
+#map { position:absolute; top:50px; bottom:0; left:0; right:0; z-index:0; }
 .top-bar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50px;
-  background: #111;
-  color: white;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 10px;
-  z-index: 1100;
-  font-size: 14px;
+  position: fixed; top:0; left:0; right:0; height:50px; background:#111; color:white;
+  display:flex; justify-content:space-between; align-items:center; padding:0 10px; z-index:1100; font-size:14px;
 }
-
-/* Popup button style inside markers */
 .leaflet-popup-content button {
-  margin-top: 5px;
-  padding: 6px;
-  width: 100%;
-  font-size: 14px;
-  border: none;
-  border-radius: 5px;
-  background-color: #444;
-  color: white;
+  margin-top:5px; padding:6px; width:100%; font-size:14px; border:none; border-radius:5px;
+  background-color:#444; color:white;
 }
 </style>
 </head>
-
 <body>
 
-<!-- Top status bar -->
 <div class="top-bar">
   <span id="statusText">Passenger</span>
   <span id="onlineCount">Online taxis: 0</span>
 </div>
 
-<!-- Map container -->
 <div id="map"></div>
-
-<!-- Sound -->
 <audio id="acceptedSound" src="assets/sounds/accepted.mp3"></audio>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js"></script>
 <script src="passenger.js"></script>
-
 </body>
 </html>

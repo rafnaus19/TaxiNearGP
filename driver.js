@@ -1,80 +1,60 @@
 // driver.js
-let driverId = "driver_" + Math.floor(Math.random()*100000);
+let map, myMarker, driverId = "driver_" + Date.now();
 let online = false;
-let busy = false;
-let map, marker;
-let heatLayers = {};
 
+// Init map
 navigator.geolocation.getCurrentPosition(pos => {
   map = L.map("map").setView([pos.coords.latitude, pos.coords.longitude], 15);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-  marker = L.marker([pos.coords.latitude, pos.coords.longitude]).addTo(map);
+
+  myMarker = L.circle([pos.coords.latitude, pos.coords.longitude], {
+    radius: 30,
+    color: 'green',
+    fillOpacity: 0.5
+  }).addTo(map);
 });
 
-// Toggle online/offline
+// Toggle Online / Offline
 document.getElementById("toggleBtn").onclick = () => {
-  if (!online) goOnline(); else goOffline();
-};
-
-function goOnline() {
-  const taxiNo = document.getElementById("taxiNumber").value;
-  if (!taxiNo.startsWith("T")) { alert("Taxi number must start with T"); return; }
-  const seats = document.getElementById("seats").value;
+  const taxiNumber = document.getElementById("taxiNumber").value.trim();
+  const seats = parseInt(document.getElementById("seats").value) || 4;
   const type = document.getElementById("type").value;
 
-  online = true;
-  document.getElementById("statusText").textContent = "ONLINE";
-  document.getElementById("taxiInfo").textContent = "Taxi: " + taxiNo;
-  document.getElementById("toggleBtn").textContent = "GO OFFLINE";
+  if (!taxiNumber) return alert("Enter taxi number!");
 
-  navigator.geolocation.watchPosition(pos => {
-    firebase.database().ref("drivers/"+driverId).set({
-      lat: pos.coords.latitude,
-      lng: pos.coords.longitude,
+  online = !online;
+  const statusText = document.getElementById("statusText");
+  const taxiInfo = document.getElementById("taxiInfo");
+
+  if (online) {
+    statusText.textContent = "ONLINE";
+    taxiInfo.textContent = "Taxi: " + taxiNumber;
+
+    firebase.database().ref("drivers/" + driverId).set({
       online: true,
-      busy: busy,
-      taxiNumber: taxiNo,
-      seats: seats,
-      type: type,
-      time: Date.now()
+      lat: myMarker.getLatLng().lat,
+      lng: myMarker.getLatLng().lng,
+      taxiNumber,
+      seats,
+      type
     });
-    marker.setLatLng([pos.coords.latitude, pos.coords.longitude]);
+    document.getElementById("toggleBtn").textContent = "GO OFFLINE";
+
+  } else {
+    statusText.textContent = "OFFLINE";
+    taxiInfo.textContent = "Taxi: N/A";
+    firebase.database().ref("drivers/" + driverId).update({ online: false });
+    document.getElementById("toggleBtn").textContent = "GO ONLINE";
+  }
+};
+
+// Update location every 5 seconds if online
+setInterval(() => {
+  if (!online || !map) return;
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    myMarker.setLatLng([lat, lng]);
+    firebase.database().ref("drivers/" + driverId).update({ lat, lng });
   });
-}
-
-// Go offline
-function goOffline() {
-  online = false;
-  busy = false;
-  document.getElementById("statusText").textContent = "OFFLINE";
-  document.getElementById("taxiInfo").textContent = "Taxi: N/A";
-  document.getElementById("toggleBtn").textContent = "GO ONLINE";
-  firebase.database().ref("drivers/"+driverId).remove();
-}
-
-// Listen for requests
-firebase.database().ref("requests").on("value", snap => {
-  snap.forEach(r => {
-    const req = r.val();
-    if (!req.driver && online && !busy) {
-      document.getElementById("requestSound").play();
-      if (confirm("New ride request. Accept?")) {
-        busy = true;
-        firebase.database().ref("requests/"+r.key).update({
-          driver: driverId,
-          taxiNumber: document.getElementById("taxiNumber").value
-        });
-      }
-    }
-  });
-});
-
-// Heat map for requests
-firebase.database().ref("requests").on("child_added", snap => {
-  const req = snap.val();
-  const reqTime = Date.now();
-  const circle = L.circle([req.lat, req.lng], {radius:50, color:'red', fillOpacity:0.3}).addTo(map);
-  heatLayers[snap.key] = circle;
-  // Fade after 10 minutes
-  setTimeout(() => { map.removeLayer(circle); delete heatLayers[snap.key]; }, 10*60*1000);
-});
+}, 5000);

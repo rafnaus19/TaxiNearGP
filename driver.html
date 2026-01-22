@@ -15,18 +15,14 @@ html, body {
   height: 100%;
   font-family: Arial, sans-serif;
 }
-
-/* Map full remaining screen */
 #map {
   position: absolute;
-  top: 110px; /* below top bar + panel */
+  top: 110px; 
   bottom: 0;
   left: 0;
   right: 0;
   z-index: 0;
 }
-
-/* Top bar fixed */
 .top-bar {
   position: fixed;
   top: 0;
@@ -41,7 +37,6 @@ html, body {
   padding: 0 8px;
   z-index: 1100;
 }
-
 .top-bar button {
   padding: 6px 12px;
   border-radius: 5px;
@@ -50,11 +45,9 @@ html, body {
   background-color: #222;
   font-size: 14px;
 }
-
-/* Floating taxi input panel */
 .panel {
   position: fixed;
-  top: 50px; /* below top bar */
+  top: 50px; 
   left: 5px;
   right: 5px;
   background: rgba(255,255,255,0.95);
@@ -63,34 +56,29 @@ html, body {
   display: flex;
   gap: 5px;
   z-index: 1050;
-  flex-wrap: wrap; /* wrap inputs on small screens */
+  flex-wrap: wrap;
 }
-
 .panel input, .panel select {
-  flex: 1 1 45%; /* responsive width */
+  flex: 1 1 45%;
   padding: 5px;
   font-size: 14px;
   min-width: 70px;
   box-sizing: border-box;
 }
-
-/* Make marker popup text readable */
 .leaflet-popup-content {
   font-size: 14px;
 }
 </style>
-</head>
 
+</head>
 <body>
 
-<!-- Top status bar -->
 <div class="top-bar">
   <span id="statusText">OFFLINE</span>
   <span id="taxiInfo">Taxi: N/A</span>
   <button id="toggleBtn">GO ONLINE</button>
 </div>
 
-<!-- Floating input panel -->
 <div class="panel">
   <input id="taxiNumber" placeholder="Taxi Number (T1234)">
   <input id="seats" type="number" placeholder="Seats">
@@ -102,18 +90,14 @@ html, body {
   </select>
 </div>
 
-<!-- Map container -->
 <div id="map"></div>
 
-<!-- Sounds -->
 <audio id="requestSound" src="assets/sounds/request.mp3"></audio>
 <audio id="acceptedSound" src="assets/sounds/accepted.mp3"></audio>
 
-<!-- Scripts -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js"></script>
 <script src="driver.js"></script>
-
 </body>
 </html>
