@@ -1,11 +1,9 @@
-import { db } from "./firebase.js";
-import {
-  ref, set, update, remove, onValue, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
-
-let driverId = "driver_" + Math.floor(Math.random() * 100000);
+// driver.js
+let driverId = "driver_" + Math.floor(Math.random()*100000);
 let online = false;
+let busy = false;
 let map, marker;
+let heatLayers = {};
 
 navigator.geolocation.getCurrentPosition(pos => {
   map = L.map("map").setView([pos.coords.latitude, pos.coords.longitude], 15);
@@ -13,48 +11,70 @@ navigator.geolocation.getCurrentPosition(pos => {
   marker = L.marker([pos.coords.latitude, pos.coords.longitude]).addTo(map);
 });
 
-document.getElementById("toggleBtn").onclick = async () => {
-  if (!online) {
-    const taxiNo = taxiNumber.value;
-    if (!taxiNo.startsWith("T")) return alert("Taxi number must start with T");
-
-    online = true;
-    toggleBtn.innerText = "GO OFFLINE";
-    taxiInfo.innerText = taxiNo;
-
-    navigator.geolocation.watchPosition(pos => {
-      set(ref(db, "drivers/" + driverId), {
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
-        taxiNumber: taxiNo,
-        seats: seats.value,
-        type: type.value,
-        online: true,
-        time: serverTimestamp()
-      });
-      marker.setLatLng([pos.coords.latitude, pos.coords.longitude]);
-    });
-
-  } else {
-    online = false;
-    toggleBtn.innerText = "GO ONLINE";
-    taxiInfo.innerText = "OFFLINE";
-    remove(ref(db, "drivers/" + driverId));
-  }
+// Toggle online/offline
+document.getElementById("toggleBtn").onclick = () => {
+  if (!online) goOnline(); else goOffline();
 };
 
-onValue(ref(db, "requests"), snap => {
-  snap.forEach(req => {
-    const r = req.val();
-    if (!r.driver && online) {
+function goOnline() {
+  const taxiNo = document.getElementById("taxiNumber").value;
+  if (!taxiNo.startsWith("T")) { alert("Taxi number must start with T"); return; }
+  const seats = document.getElementById("seats").value;
+  const type = document.getElementById("type").value;
+
+  online = true;
+  document.getElementById("statusText").textContent = "ONLINE";
+  document.getElementById("taxiInfo").textContent = "Taxi: " + taxiNo;
+  document.getElementById("toggleBtn").textContent = "GO OFFLINE";
+
+  navigator.geolocation.watchPosition(pos => {
+    firebase.database().ref("drivers/"+driverId).set({
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude,
+      online: true,
+      busy: busy,
+      taxiNumber: taxiNo,
+      seats: seats,
+      type: type,
+      time: Date.now()
+    });
+    marker.setLatLng([pos.coords.latitude, pos.coords.longitude]);
+  });
+}
+
+// Go offline
+function goOffline() {
+  online = false;
+  busy = false;
+  document.getElementById("statusText").textContent = "OFFLINE";
+  document.getElementById("taxiInfo").textContent = "Taxi: N/A";
+  document.getElementById("toggleBtn").textContent = "GO ONLINE";
+  firebase.database().ref("drivers/"+driverId).remove();
+}
+
+// Listen for requests
+firebase.database().ref("requests").on("value", snap => {
+  snap.forEach(r => {
+    const req = r.val();
+    if (!req.driver && online && !busy) {
       document.getElementById("requestSound").play();
       if (confirm("New ride request. Accept?")) {
-        update(ref(db, "requests/" + req.key), {
+        busy = true;
+        firebase.database().ref("requests/"+r.key).update({
           driver: driverId,
-          taxiNumber: taxiInfo.innerText
+          taxiNumber: document.getElementById("taxiNumber").value
         });
-        document.getElementById("acceptedSound").play();
       }
     }
   });
+});
+
+// Heat map for requests
+firebase.database().ref("requests").on("child_added", snap => {
+  const req = snap.val();
+  const reqTime = Date.now();
+  const circle = L.circle([req.lat, req.lng], {radius:50, color:'red', fillOpacity:0.3}).addTo(map);
+  heatLayers[snap.key] = circle;
+  // Fade after 10 minutes
+  setTimeout(() => { map.removeLayer(circle); delete heatLayers[snap.key]; }, 10*60*1000);
 });

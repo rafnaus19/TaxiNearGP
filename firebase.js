@@ -1,6 +1,5 @@
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getDatabase } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+// firebase.js
+// Make sure you replace YOUR_API_KEY etc with your Firebase project info
 
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
@@ -12,6 +11,5 @@ const firebaseConfig = {
   appId: "XXXX"
 };
 
-export const app = initializeApp(firebaseConfig);
-export const db = getDatabase(app);
-</script>
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
