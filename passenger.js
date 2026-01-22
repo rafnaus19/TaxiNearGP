@@ -4,32 +4,50 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19
 }).addTo(map);
 
-let markers = {};
 const countEl = document.getElementById("count");
 
-navigator.geolocation.getCurrentPosition(pos => {
-  map.setView([pos.coords.latitude, pos.coords.longitude], 15);
-});
+let driverMarkers = {};
+let passengerMarker = null;
 
+// Passenger location
+navigator.geolocation.getCurrentPosition(
+  pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+
+    passengerMarker = L.circleMarker([lat, lng], {
+      radius: 8,
+      color: "blue"
+    }).addTo(map);
+
+    map.setView([lat, lng], 15);
+  },
+  err => alert(err.message),
+  { enableHighAccuracy: true }
+);
+
+// Listen for drivers
 firebase.database().ref("drivers").on("value", snap => {
   const drivers = snap.val() || {};
+
   countEl.textContent = Object.keys(drivers).length;
 
-  // remove offline drivers
-  Object.keys(markers).forEach(id => {
+  // Remove offline drivers
+  Object.keys(driverMarkers).forEach(id => {
     if (!drivers[id]) {
-      map.removeLayer(markers[id]);
-      delete markers[id];
+      map.removeLayer(driverMarkers[id]);
+      delete driverMarkers[id];
     }
   });
 
-  // add/update online drivers
+  // Add / update drivers
   Object.keys(drivers).forEach(id => {
     const d = drivers[id];
-    if (!markers[id]) {
-      markers[id] = L.marker([d.lat, d.lng]).addTo(map);
+
+    if (!driverMarkers[id]) {
+      driverMarkers[id] = L.marker([d.lat, d.lng]).addTo(map);
     } else {
-      markers[id].setLatLng([d.lat, d.lng]);
+      driverMarkers[id].setLatLng([d.lat, d.lng]);
     }
   });
 });

@@ -1,8 +1,8 @@
-const driverId = "driver_" + Math.floor(Math.random() * 100000);
+const driverId = "driver_" + Math.floor(Math.random() * 1000000);
+const statusEl = document.getElementById("status");
+
 let watchId = null;
 let marker = null;
-
-const statusEl = document.getElementById("status");
 
 const map = L.map("map").setView([0, 0], 2);
 
@@ -12,7 +12,7 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 
 function goOnline() {
   if (!navigator.geolocation) {
-    alert("Geolocation not supported");
+    alert("GPS not supported");
     return;
   }
 
@@ -34,10 +34,10 @@ function goOnline() {
       map.setView([lat, lng], 16);
 
       firebase.database().ref("drivers/" + driverId).set({
-        lat: lat,
-        lng: lng,
+        lat,
+        lng,
         online: true,
-        time: Date.now()
+        updatedAt: Date.now()
       });
     },
     err => {
@@ -49,7 +49,10 @@ function goOnline() {
 }
 
 function goOffline() {
-  if (watchId) navigator.geolocation.clearWatch(watchId);
+  if (watchId) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
 
   firebase.database().ref("drivers/" + driverId).remove();
 
