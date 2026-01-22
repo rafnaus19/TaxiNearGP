@@ -49,11 +49,12 @@ function goOnline() {
 }
 
 function goOffline() {
-  if (watchId) {
+  if (watchId !== null) {
     navigator.geolocation.clearWatch(watchId);
     watchId = null;
   }
 
+  // REMOVE driver immediately
   firebase.database().ref("drivers/" + driverId).remove();
 
   if (marker) {

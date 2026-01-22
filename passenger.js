@@ -17,7 +17,9 @@ navigator.geolocation.getCurrentPosition(
 
     passengerMarker = L.circleMarker([lat, lng], {
       radius: 8,
-      color: "blue"
+      color: "blue",
+      fillColor: "blue",
+      fillOpacity: 0.8
     }).addTo(map);
 
     map.setView([lat, lng], 15);
@@ -26,7 +28,7 @@ navigator.geolocation.getCurrentPosition(
   { enableHighAccuracy: true }
 );
 
-// Listen for drivers
+// LIVE driver listener
 firebase.database().ref("drivers").on("value", snap => {
   const drivers = snap.val() || {};
 
