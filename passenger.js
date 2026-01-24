@@ -23,16 +23,14 @@ function initMap(pos) {
     { subdomains: "abcd", maxZoom: 19 }
   ).addTo(map);
 
-  L.circle(passengerLatLng, {
-    radius: 60,
-    color: "blue",
-    fillOpacity: 0.4
-  }).addTo(map);
+  // Show passenger location
+  L.circle(passengerLatLng, { radius: 60, color: "blue", fillOpacity: 0.4 }).addTo(map);
 
   listenDrivers();
   listenRequests();
 }
 
+// Listen all drivers online
 function listenDrivers() {
   firebase.database().ref("drivers").on("value", snapshot => {
     const drivers = snapshot.val() || {};
@@ -48,19 +46,16 @@ function listenDrivers() {
       onlineCount++;
       const latlng = [d.lat, d.lng];
 
+      const popupContent = `<b>🚕 ${d.taxiNumber || "Taxi"}</b> (${d.seats || "N/A"} seats)<br>
+        <button onclick="hailTaxi('${id}')">Hail</button>`;
+
       if (driverMarkers[id]) {
         driverMarkers[id].setLatLng(latlng);
-        driverMarkers[id].getPopup().setContent(
-          `<b>🚕 ${d.taxiNumber || "Taxi"}</b> (${d.seats || "N/A"} seats)<br>
-          <button onclick="hailTaxi('${id}')">Hail</button>`
-        );
+        driverMarkers[id].getPopup().setContent(popupContent);
       } else {
         driverMarkers[id] = L.marker(latlng)
           .addTo(map)
-          .bindPopup(
-            `<b>🚕 ${d.taxiNumber || "Taxi"}</b> (${d.seats || "N/A"} seats)<br>
-            <button onclick="hailTaxi('${id}')">Hail</button>`
-          );
+          .bindPopup(popupContent);
       }
     }
 
@@ -68,6 +63,7 @@ function listenDrivers() {
   });
 }
 
+// Send hail request
 function hailTaxi(driverId) {
   const now = Date.now();
 
@@ -77,17 +73,12 @@ function hailTaxi(driverId) {
   }
 
   if (rejectedDrivers[driverId] && now - rejectedDrivers[driverId] < 60000) {
-    alert("Please wait 1 minute before requesting the same driver again.");
+    alert("Wait 1 minute before requesting the same driver again.");
     return;
   }
 
   const requestRef = firebase.database().ref("requests").push();
-  activeRequest = {
-    id: requestRef.key,
-    driverId: driverId,
-    status: "pending",
-    timestamp: now
-  };
+  activeRequest = { id: requestRef.key, driverId: driverId, status: "pending", timestamp: now };
 
   requestRef.set({
     passengerId: passengerId,
@@ -99,6 +90,7 @@ function hailTaxi(driverId) {
   alert("Request sent!");
 }
 
+// Listen requests for passenger
 function listenRequests() {
   firebase.database().ref("requests").on("value", snapshot => {
     const requests = snapshot.val() || {};
@@ -109,15 +101,15 @@ function listenRequests() {
       if (r.passengerId === passengerId) {
         if (r.status === "accepted" && activeRequest && activeRequest.id === reqId) {
           acceptedSound.play();
-          alert(`Driver accepted your request: ${r.driverId}`);
+          alert(`Driver ${r.driverId} accepted your request!`);
         }
-        if ((r.status === "cancelled" || r.status === "completed") && activeRequest && activeRequest.id === reqId) {
+        if ((r.status === "completed" || r.status === "cancelled") && activeRequest && activeRequest.id === reqId) {
           activeRequest = null;
         }
         if (r.status === "rejected" && activeRequest && activeRequest.id === reqId) {
           activeRequest = null;
           rejectedDrivers[r.driverId] = Date.now();
-          alert(`Driver ${r.driverId} rejected your request. Wait 1 minute to request again.`);
+          alert(`Driver ${r.driverId} rejected your request. Wait 1 min to request same driver.`);
         }
       }
     }
