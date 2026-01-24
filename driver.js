@@ -6,8 +6,11 @@ let taxiNumber = "";
 let seats = 4;
 let activeRequestId = null;
 
-const statusEl = document.getElementById("status");
+const statusTextEl = document.getElementById("statusText");
+const actionButton = document.getElementById("actionButton");
 const requestSound = new Audio("assets/sounds/request.mp3");
+
+let isOnline = false;
 
 function enterTaxiDetails() {
   taxiNumber = prompt("Enter Taxi Number (e.g., T123)", taxiNumber || "");
@@ -50,14 +53,18 @@ function updateLocation() {
   );
 }
 
+// Go online function
 function goOnline() {
-  if (!navigator.geolocation) { alert("GPS not supported"); return; }
   enterTaxiDetails();
   if (!taxiNumber) return;
 
-  statusEl.innerText = `🟢 ONLINE - ${taxiNumber}`;
-  statusEl.style.background = "#0a7d00";
-  statusEl.style.color = "#fff";
+  isOnline = true;
+  statusTextEl.innerText = `🟢 ONLINE - ${taxiNumber}`;
+  statusTextEl.style.background = "#0a7d00";
+  statusTextEl.style.color = "#fff";
+
+  actionButton.innerText = "Go Offline";
+  actionButton.onclick = goOffline;
 
   updateLocation();
   gpsInterval = setInterval(updateLocation, 5000);
@@ -65,25 +72,29 @@ function goOnline() {
   listenRequests();
 }
 
-// Offline function
+// Go offline function
 function goOffline() {
-  if (gpsInterval) clearInterval(gpsInterval);
-  firebase.database().ref("drivers/" + driverId).update({
-    online: false,
-    updatedAt: Date.now()
-  });
+  isOnline = false;
 
-  statusEl.innerText = "🔴 OFFLINE";
-  statusEl.style.background = "#900";
-  statusEl.style.color = "#fff";
+  if (gpsInterval) clearInterval(gpsInterval);
+  firebase.database().ref("drivers/" + driverId).update({ online:false, updatedAt: Date.now() });
+
+  statusTextEl.innerText = "🔴 OFFLINE";
+  statusTextEl.style.background = "#900";
+  statusTextEl.style.color = "#fff";
+
+  actionButton.innerText = "Go Online";
+  actionButton.onclick = goOnline;
+
   activeRequestId = null;
 }
 
-// Auto offline if tab/browser closed
+// Auto offline if tab/browser closes
 window.addEventListener("beforeunload", () => {
   firebase.database().ref("drivers/" + driverId).update({ online:false });
 });
 
+// Listen incoming requests
 function listenRequests() {
   firebase.database().ref("requests").on("value", snapshot => {
     const requests = snapshot.val() || {};
@@ -99,7 +110,7 @@ function listenRequests() {
         if (accept) {
           firebase.database().ref("requests/" + reqId).update({ status: "accepted" });
           activeRequestId = reqId;
-          statusEl.innerText = `🟢 ONLINE - ${taxiNumber} (Busy)`;
+          statusTextEl.innerText = `🟢 ONLINE - ${taxiNumber} (Busy)`;
         } else {
           firebase.database().ref("requests/" + reqId).update({ status: "rejected" });
         }
@@ -107,7 +118,7 @@ function listenRequests() {
 
       if (r.status === "completed" || r.status === "cancelled") {
         if (activeRequestId === reqId) activeRequestId = null;
-        statusEl.innerText = `🟢 ONLINE - ${taxiNumber}`;
+        statusTextEl.innerText = `🟢 ONLINE - ${taxiNumber}`;
       }
     }
   });
