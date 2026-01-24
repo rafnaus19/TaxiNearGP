@@ -1,7 +1,6 @@
-// passenger.js
-
 let map;
 let driverMarkers = {};
+let passengerLatLng;
 
 navigator.geolocation.getCurrentPosition(
   pos => initMap(pos),
@@ -9,19 +8,17 @@ navigator.geolocation.getCurrentPosition(
 );
 
 function initMap(pos) {
-  const lat = pos.coords.latitude;
-  const lng = pos.coords.longitude;
+  passengerLatLng = [pos.coords.latitude, pos.coords.longitude];
 
-  map = L.map("map", { zoomControl: false }).setView([lat, lng], 15);
-
+  map = L.map("map", { zoomControl: false }).setView(passengerLatLng, 15);
   L.control.zoom({ position: "bottomright" }).addTo(map);
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19
-  }).addTo(map);
+  L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    { subdomains: "abcd", maxZoom: 19 }
+  ).addTo(map);
 
-  // Passenger location
-  L.circle([lat, lng], {
+  L.circle(passengerLatLng, {
     radius: 60,
     color: "blue",
     fillOpacity: 0.4
@@ -35,27 +32,36 @@ function listenDrivers() {
     const drivers = snapshot.val() || {};
     let onlineCount = 0;
 
-    // Clear old markers
-    Object.values(driverMarkers).forEach(m => map.removeLayer(m));
-    driverMarkers = {};
-
     for (const id in drivers) {
       const d = drivers[id];
-      if (!d) continue;
-      if (d.online !== true) continue;
-      if (typeof d.lat !== "number") continue;
-      if (typeof d.lng !== "number") continue;
+      if (!d || d.online !== true) {
+        if (driverMarkers[id]) { map.removeLayer(driverMarkers[id]); delete driverMarkers[id]; }
+        continue;
+      }
 
       onlineCount++;
+      const latlng = [d.lat, d.lng];
 
-      const marker = L.marker([d.lat, d.lng])
-        .addTo(map)
-        .bindPopup("🚕 Taxi Online");
-
-      driverMarkers[id] = marker;
+      if (driverMarkers[id]) {
+        driverMarkers[id].setLatLng(latlng);
+        driverMarkers[id].getPopup().setContent(`
+          🚕 ${d.taxiNumber || "Taxi"}<br>
+          <button onclick="hailTaxi('${id}')">Hail</button>
+        `);
+      } else {
+        driverMarkers[id] = L.marker(latlng)
+          .addTo(map)
+          .bindPopup(`
+            🚕 ${d.taxiNumber || "Taxi"}<br>
+            <button onclick="hailTaxi('${id}')">Hail</button>
+          `);
+      }
     }
 
-    document.getElementById("onlineCount").innerText =
-      "Online taxis: " + onlineCount;
+    document.getElementById("onlineCount").innerText = "Online taxis: " + onlineCount;
   });
+}
+
+function hailTaxi(driverId) {
+  alert("Hail sent to " + driverId + " (next step)");
 }
