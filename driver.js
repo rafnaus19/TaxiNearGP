@@ -1,58 +1,76 @@
-let map, myMarker, driverId = "driver_" + Date.now();
-let online = false;
+// driver.js
 
-// Initialize map
-navigator.geolocation.getCurrentPosition(pos=>{
-  map = L.map("map").setView([pos.coords.latitude,pos.coords.longitude],15);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-  myMarker = L.circle([pos.coords.latitude,pos.coords.longitude], {radius:30,color:'green',fillOpacity:0.5}).addTo(map);
-});
+let map;
+let driverMarker;
+let watchId = null;
+let driverId = "driver_" + Math.floor(Math.random() * 1000000);
 
-// Toggle online/offline
-document.getElementById("toggleBtn").onclick = ()=>{
-  const taxiNumber = document.getElementById("taxiNumber").value.trim();
-  const seats = parseInt(document.getElementById("seats").value) || 4;
-  const type = document.getElementById("type").value;
+const statusEl = document.getElementById("status");
 
-  if(!taxiNumber) return alert("Enter taxi number!");
+function initMap(lat, lng) {
+  map = L.map("map", { zoomControl: false }).setView([lat, lng], 15);
+  L.control.zoom({ position: "bottomright" }).addTo(map);
 
-  online = !online;
-  const statusText = document.getElementById("statusText");
-  const taxiInfo = document.getElementById("taxiInfo");
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19
+  }).addTo(map);
 
-  if(online){
-    statusText.textContent = "ONLINE";
-    statusText.classList.add("online");
-    statusText.classList.remove("offline");
-    taxiInfo.textContent = "Taxi: " + taxiNumber;
-    document.getElementById("toggleBtn").textContent = "GO OFFLINE";
+  driverMarker = L.marker([lat, lng]).addTo(map);
+}
 
-    firebase.database().ref("drivers/"+driverId).set({
-      online:true,
-      lat:myMarker.getLatLng().lat,
-      lng:myMarker.getLatLng().lng,
-      taxiNumber,
-      seats,
-      type
-    });
-
-  } else {
-    statusText.textContent = "OFFLINE";
-    statusText.classList.add("offline");
-    statusText.classList.remove("online");
-    taxiInfo.textContent = "Taxi: N/A";
-    document.getElementById("toggleBtn").textContent = "GO ONLINE";
-    firebase.database().ref("drivers/"+driverId).update({online:false});
+function goOnline() {
+  if (!navigator.geolocation) {
+    alert("GPS not supported");
+    return;
   }
-};
 
-// Update location every 5s if online
-setInterval(()=>{
-  if(!online || !map) return;
-  navigator.geolocation.getCurrentPosition(pos=>{
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
-    myMarker.setLatLng([lat,lng]);
-    firebase.database().ref("drivers/"+driverId).update({lat,lng});
+  statusEl.innerText = "🟢 ONLINE";
+  statusEl.style.background = "#0a7d00";
+  statusEl.style.color = "#fff";
+
+  watchId = navigator.geolocation.watchPosition(
+    pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+
+      if (!map) {
+        initMap(lat, lng);
+      } else {
+        driverMarker.setLatLng([lat, lng]);
+        map.setView([lat, lng]);
+      }
+
+      firebase.database().ref("drivers/" + driverId).set({
+        lat: lat,
+        lng: lng,
+        online: true,
+        updatedAt: Date.now()
+      });
+    },
+    err => {
+      alert("Location error");
+      console.error(err);
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 10000
+    }
+  );
+}
+
+function goOffline() {
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+
+  firebase.database().ref("drivers/" + driverId).update({
+    online: false,
+    updatedAt: Date.now()
   });
-},5000);
+
+  statusEl.innerText = "🔴 OFFLINE";
+  statusEl.style.background = "#900";
+  statusEl.style.color = "#fff";
+}
