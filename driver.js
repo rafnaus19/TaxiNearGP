@@ -1,124 +1,134 @@
 let map;
-let driverMarker;
-let driverId = "driver_" + Math.floor(Math.random() * 1000000);
-let gpsInterval = null;
-let taxiNumber = "";
-let seats = 4;
-let activeRequestId = null;
+let driverMarkers = {};
+let passengerId = "passenger_" + Math.floor(Math.random()*1000000);
+let passengerLatLng;
+let activeRequest = null;
+let rejectedDrivers = {};
+const acceptedSound = new Audio("assets/sounds/accepted.mp3");
 
-const statusTextEl = document.getElementById("statusText");
-const actionButton = document.getElementById("actionButton");
-const requestSound = new Audio("assets/sounds/request.mp3");
+// Get passenger location
+navigator.geolocation.getCurrentPosition(pos => initMap(pos), () => alert("Please allow location access"));
 
-let isOnline = false;
+function initMap(pos){
+  passengerLatLng = [pos.coords.latitude, pos.coords.longitude];
+  map = L.map("map",{zoomControl:false}).setView(passengerLatLng,15);
+  L.control.zoom({position:"bottomright"}).addTo(map);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{subdomains:"abcd",maxZoom:19}).addTo(map);
 
-function enterTaxiDetails() {
-  taxiNumber = prompt("Enter Taxi Number (e.g., T123)", taxiNumber || "");
-  const s = prompt("Enter number of seats", seats);
-  seats = parseInt(s) || seats;
-}
+  // Show passenger location
+  L.circle(passengerLatLng,{radius:60,color:"blue",fillOpacity:0.4}).addTo(map);
 
-function initMap(lat, lng) {
-  map = L.map("map", { zoomControl: false }).setView([lat, lng], 16);
-  L.control.zoom({ position: "bottomright" }).addTo(map);
-
-  L.tileLayer(
-    "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-    { subdomains: "abcd", maxZoom: 19 }
-  ).addTo(map);
-
-  driverMarker = L.marker([lat, lng]).addTo(map).bindPopup(taxiNumber || "Taxi");
-}
-
-function updateLocation() {
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-
-      if (!map) initMap(lat, lng);
-      else driverMarker.setLatLng([lat, lng]);
-
-      firebase.database().ref("drivers/" + driverId).set({
-        lat: lat,
-        lng: lng,
-        online: true,
-        taxiNumber: taxiNumber,
-        seats: seats,
-        updatedAt: Date.now()
-      });
-    },
-    err => console.error("GPS error", err),
-    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-  );
-}
-
-// Go online function
-function goOnline() {
-  enterTaxiDetails();
-  if (!taxiNumber) return;
-
-  isOnline = true;
-  statusTextEl.innerText = `🟢 ONLINE - ${taxiNumber}`;
-  statusTextEl.style.background = "#0a7d00";
-  statusTextEl.style.color = "#fff";
-
-  actionButton.innerText = "Go Offline";
-  actionButton.onclick = goOffline;
-
-  updateLocation();
-  gpsInterval = setInterval(updateLocation, 5000);
-
+  listenDrivers();
   listenRequests();
 }
 
-// Go offline function
-function goOffline() {
-  isOnline = false;
+// Listen for online drivers
+function listenDrivers(){
+  firebase.database().ref("drivers").on("value", snapshot => {
+    const drivers = snapshot.val() || {};
+    let onlineCount = 0;
 
-  if (gpsInterval) clearInterval(gpsInterval);
-  firebase.database().ref("drivers/" + driverId).update({ online:false, updatedAt: Date.now() });
-
-  statusTextEl.innerText = "🔴 OFFLINE";
-  statusTextEl.style.background = "#900";
-  statusTextEl.style.color = "#fff";
-
-  actionButton.innerText = "Go Online";
-  actionButton.onclick = goOnline;
-
-  activeRequestId = null;
-}
-
-// Auto offline if tab/browser closes
-window.addEventListener("beforeunload", () => {
-  firebase.database().ref("drivers/" + driverId).update({ online:false });
-});
-
-// Listen incoming requests
-function listenRequests() {
-  firebase.database().ref("requests").on("value", snapshot => {
-    const requests = snapshot.val() || {};
-
-    for (const reqId in requests) {
-      const r = requests[reqId];
-      if (r.driverId !== driverId) continue;
-      if (activeRequestId && activeRequestId !== reqId) continue;
-
-      if (r.status === "pending") {
-        requestSound.play();
-        const accept = confirm(`Passenger ${r.passengerId} wants a ride. Accept?`);
-        if (accept) {
-          firebase.database().ref("requests/" + reqId).update({ status: "accepted" });
-          activeRequestId = reqId;
-          statusTextEl.innerText = `🟢 ONLINE - ${taxiNumber} (Busy)`;
-        } else {
-          firebase.database().ref("requests/" + reqId).update({ status: "rejected" });
+    for(const id in drivers){
+      const d = drivers[id];
+      if(!d || d.online !== true){
+        if(driverMarkers[id]){
+          map.removeLayer(driverMarkers[id]);
+          delete driverMarkers[id];
         }
+        continue;
       }
 
-      if (r.status === "completed" || r.status === "cancelled") {
-        if (activeRequestId === reqId) activeRequestId = null;
-        statusTextEl.innerText = `🟢 ONLINE - ${taxiNumber}`;
+      onlineCount++;
+      const latlng = [d.lat, d.lng];
+
+      const popupContent = `
+        <b>🚕 ${d.taxiNumber || "Taxi"}</b><br>
+        Seats: ${d.seats || "N/A"}<br>
+        Type: ${d.taxiType || "regular"}<br>
+        Wheelchair: ${d.wheelchair ? "Yes":"No"}<br>
+        <button onclick="hailTaxi('${id}')">Hail</button>
+        <button onclick="cancelRequest()">Cancel</button>
+      `;
+
+      if(driverMarkers[id]){
+        driverMarkers[id].setLatLng(latlng);
+        driverMarkers[id].getPopup().setContent(popupContent);
+      } else {
+        driverMarkers[id] = L.marker(latlng)
+          .addTo(map)
+          .bindPopup(popupContent);
+      }
+    }
+
+    document.getElementById("onlineCount").innerText = "Online taxis: " + onlineCount;
+  });
+}
+
+// Send hail request
+function hailTaxi(driverId){
+  const now = Date.now();
+
+  if(activeRequest){
+    alert("You already have an active request!");
+    return;
+  }
+
+  if(rejectedDrivers[driverId] && now - rejectedDrivers[driverId] < 60000){
+    alert("Wait 1 minute before requesting the same driver again.");
+    return;
+  }
+
+  const requestRef = firebase.database().ref("requests").push();
+  activeRequest = {id: requestRef.key, driverId, status:"pending", timestamp: now};
+
+  // Include passenger location for driver heatmap
+  requestRef.set({
+    passengerId: passengerId,
+    driverId: driverId,
+    lat: passengerLatLng[0],
+    lng: passengerLatLng[1],
+    status: "pending",
+    timestamp: now
+  });
+
+  alert("Request sent!");
+}
+
+// Cancel active request
+function cancelRequest(){
+  if(activeRequest){
+    firebase.database().ref("requests/"+activeRequest.id).update({status:"cancelled"});
+    activeRequest = null;
+    alert("Active request cancelled");
+  } else {
+    alert("No active request to cancel");
+  }
+}
+
+// Listen requests updates for this passenger
+function listenRequests(){
+  firebase.database().ref("requests").on("value", snapshot => {
+    const requests = snapshot.val() || {};
+    for(const reqId in requests){
+      const r = requests[reqId];
+      if(r.passengerId !== passengerId) continue;
+
+      // Accepted request
+      if(r.status === "accepted" && activeRequest && activeRequest.id === reqId){
+        acceptedSound.play();
+        alert(`Driver ${r.driverId} accepted your request!`);
+      }
+
+      // Completed or cancelled
+      if((r.status==="completed" || r.status==="cancelled") && activeRequest && activeRequest.id === reqId){
+        activeRequest = null;
+      }
+
+      // Rejected by driver
+      if(r.status==="rejected" && activeRequest && activeRequest.id === reqId){
+        activeRequest = null;
+        rejectedDrivers[r.driverId] = Date.now();
+        alert(`Driver ${r.driverId} rejected your request. Wait 1 minute to request same driver.`);
       }
     }
   });
