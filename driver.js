@@ -1,135 +1,135 @@
 let map;
-let driverMarkers = {};
-let passengerId = "passenger_" + Math.floor(Math.random()*1000000);
-let passengerLatLng;
-let activeRequest = null;
-let rejectedDrivers = {};
-const acceptedSound = new Audio("assets/sounds/accepted.mp3");
+let driverMarker;
+let driverId = "driver_" + Math.floor(Math.random() * 1000000);
+let gpsInterval = null;
+let taxiNumber = "";
+let seats = 4;
+let taxiType = "regular";
+let wheelchair = false;
+let activeRequestId = null;
 
-// Get passenger location
-navigator.geolocation.getCurrentPosition(pos => initMap(pos), () => alert("Please allow location access"));
+const statusTextEl = document.getElementById("statusText");
+const actionButton = document.getElementById("actionButton");
+const requestSound = new Audio("assets/sounds/request.mp3");
 
-function initMap(pos){
-  passengerLatLng = [pos.coords.latitude, pos.coords.longitude];
-  map = L.map("map",{zoomControl:false}).setView(passengerLatLng,15);
+let isOnline = false;
+
+// Heatmap
+let heatLayer;
+let heatPoints = [];
+const HEAT_FADE_MINUTES = 10; // heat disappears after 10 minutes
+
+function enterTaxiDetails() {
+  taxiNumber = prompt("Enter Taxi Number (e.g., T123)", taxiNumber || "");
+  seats = parseInt(prompt("Enter number of seats", seats)) || seats;
+  const type = prompt("Taxi Type: regular/luxury/maxi6/maxi12", taxiType);
+  taxiType = ["regular","luxury","maxi6","maxi12"].includes(type) ? type : "regular";
+  wheelchair = confirm("Wheelchair accessible?");
+}
+
+// Initialize map
+function initMap(lat,lng){
+  map=L.map("map",{zoomControl:false}).setView([lat,lng],16);
   L.control.zoom({position:"bottomright"}).addTo(map);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{subdomains:"abcd",maxZoom:19}).addTo(map);
+  driverMarker=L.marker([lat,lng]).addTo(map).bindPopup(`${taxiNumber || "Taxi"}`);
+}
 
-  // Show passenger location
-  L.circle(passengerLatLng,{radius:60,color:"blue",fillOpacity:0.4}).addTo(map);
+function updateLocation(){
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const lat=pos.coords.latitude;
+    const lng=pos.coords.longitude;
+    if(!map) initMap(lat,lng);
+    else driverMarker.setLatLng([lat,lng]);
 
-  listenDrivers();
+    firebase.database().ref("drivers/"+driverId).set({
+      lat, lng, online:true, taxiNumber, seats, taxiType, wheelchair, updatedAt:Date.now()
+    });
+  },err=>console.error("GPS error",err),{enableHighAccuracy:true,maximumAge:0,timeout:10000});
+}
+
+function goOnline(){
+  enterTaxiDetails();
+  if(!taxiNumber) return;
+  isOnline=true;
+  statusTextEl.innerText=`🟢 ONLINE - ${taxiNumber}`;
+  statusTextEl.style.background="#0a7d00";
+  statusTextEl.style.color="#fff";
+  actionButton.innerText="Go Offline";
+  actionButton.onclick=goOffline;
+
+  updateLocation();
+  gpsInterval=setInterval(updateLocation,5000);
   listenRequests();
 }
 
-// Listen for online drivers
-function listenDrivers(){
-  firebase.database().ref("drivers").on("value", snapshot => {
-    const drivers = snapshot.val() || {};
-    let onlineCount = 0;
+function goOffline(){
+  isOnline=false;
+  if(gpsInterval) clearInterval(gpsInterval);
+  firebase.database().ref("drivers/"+driverId).update({online:false,updatedAt:Date.now()});
+  statusTextEl.innerText="🔴 OFFLINE";
+  statusTextEl.style.background="#900";
+  statusTextEl.style.color="#fff";
+  actionButton.innerText="Go Online";
+  actionButton.onclick=goOnline;
+  activeRequestId=null;
+}
 
-    for(const id in drivers){
-      const d = drivers[id];
-      if(!d || d.online !== true){
-        if(driverMarkers[id]){
-          map.removeLayer(driverMarkers[id]);
-          delete driverMarkers[id];
-        }
-        continue;
+window.addEventListener("beforeunload",()=>{firebase.database().ref("drivers/"+driverId).update({online:false});});
+
+function listenRequests(){
+  firebase.database().ref("requests").on("value", snapshot=>{
+    const requests = snapshot.val() || {};
+    heatPoints = heatPoints.filter(p=>Date.now() - p.timestamp < HEAT_FADE_MINUTES*60000);
+
+    for(const reqId in requests){
+      const r = requests[reqId];
+
+      if(r.status==="pending" && r.lat && r.lng){
+        heatPoints.push([r.lat, r.lng, 0.5, Date.now()]);
       }
 
-      onlineCount++;
-      const latlng = [d.lat, d.lng];
+      if(r.driverId !== driverId) continue;
+      if(activeRequestId && activeRequestId !== reqId) continue;
 
-      const popupContent = `
-        <b>🚕 ${d.taxiNumber || "Taxi"}</b><br>
-        Seats: ${d.seats || "N/A"}<br>
-        Type: ${d.taxiType || "regular"}<br>
-        Wheelchair: ${d.wheelchair ? "Yes":"No"}<br>
-        <button onclick="hailTaxi('${id}')">Hail</button>
-        <button onclick="cancelRequest()">Cancel</button>
-      `;
+      if(r.status==="pending"){
+        requestSound.play();
+        const accept=confirm(`Passenger ${r.passengerId} wants a ride. Accept?`);
+        if(accept){
+          firebase.database().ref("requests/"+reqId).update({status:"accepted"});
+          activeRequestId=reqId;
+          statusTextEl.innerText=`🟢 ONLINE - ${taxiNumber} (Busy)`;
+        } else {
+          firebase.database().ref("requests/"+reqId).update({status:"rejected"});
+        }
+      }
 
-      if(driverMarkers[id]){
-        driverMarkers[id].setLatLng(latlng);
-        driverMarkers[id].getPopup().setContent(popupContent);
-      } else {
-        driverMarkers[id] = L.marker(latlng)
-          .addTo(map)
-          .bindPopup(popupContent);
+      if(r.status==="completed"||r.status==="cancelled"){
+        if(activeRequestId===reqId) activeRequestId=null;
+        statusTextEl.innerText=`🟢 ONLINE - ${taxiNumber}`;
       }
     }
 
-    document.getElementById("onlineCount").innerText = "Online taxis: " + onlineCount;
+    updateHeatMap();
   });
 }
 
-// Send hail request
-function hailTaxi(driverId){
+function updateHeatMap(){
+  if(heatLayer) map.removeLayer(heatLayer);
   const now = Date.now();
-
-  if(activeRequest){
-    alert("You already have an active request!");
-    return;
-  }
-
-  if(rejectedDrivers[driverId] && now - rejectedDrivers[driverId] < 60000){
-    alert("Wait 1 minute before requesting the same driver again.");
-    return;
-  }
-
-  const requestRef = firebase.database().ref("requests").push();
-  activeRequest = {id: requestRef.key, driverId, status:"pending", timestamp: now};
-
-  // Include passenger location for driver heatmap
-  requestRef.set({
-    passengerId: passengerId,
-    driverId: driverId,
-    lat: passengerLatLng[0],
-    lng: passengerLatLng[1],
-    status: "pending",
-    timestamp: now
-  });
-
-  alert("Request sent!");
+  const points = heatPoints
+    .filter(p=>now - p[3] < HEAT_FADE_MINUTES*60000)
+    .map(p=>[p[0], p[1], p[2]]);
+  heatLayer = L.heatLayer(points,{radius:25,blur:15,maxZoom:17}).addTo(map);
 }
 
-// Cancel active request
 function cancelRequest(){
-  if(activeRequest){
-    firebase.database().ref("requests/"+activeRequest.id).update({status:"cancelled"});
-    activeRequest = null;
-    alert("Active request cancelled");
+  if(activeRequestId){
+    firebase.database().ref("requests/"+activeRequestId).update({status:"cancelled"});
+    activeRequestId=null;
+    statusTextEl.innerText=`🟢 ONLINE - ${taxiNumber}`;
+    alert("Request cancelled");
   } else {
     alert("No active request to cancel");
   }
-}
-
-// Listen requests updates for this passenger
-function listenRequests(){
-  firebase.database().ref("requests").on("value", snapshot => {
-    const requests = snapshot.val() || {};
-    for(const reqId in requests){
-      const r = requests[reqId];
-      if(r.passengerId !== passengerId) continue;
-
-      // Accepted request
-      if(r.status === "accepted" && activeRequest && activeRequest.id === reqId){
-        acceptedSound.play();
-        alert(`Driver ${r.driverId} accepted your request!`);
-      }
-
-      // Completed or cancelled
-      if((r.status==="completed" || r.status==="cancelled") && activeRequest && activeRequest.id === reqId){
-        activeRequest = null;
-      }
-
-      // Rejected by driver
-      if(r.status==="rejected" && activeRequest && activeRequest.id === reqId){
-        activeRequest = null;
-        rejectedDrivers[r.driverId] = Date.now();
-        alert(`Driver ${r.driverId} rejected your request. Wait 1 minute to request same driver.`);
-      }
-    }
-  });
 }
