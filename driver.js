@@ -2,12 +2,17 @@ let map;
 let driverMarker;
 let driverId = "driver_" + Math.floor(Math.random() * 1000000);
 let gpsInterval = null;
-let taxiNumber = ""; // driver should enter
-const statusEl = document.getElementById("status");
+let taxiNumber = "";
+let seats = 4;
+let activeRequestId = null; // only one active request at a time
 
-function enterTaxiNumber() {
-  taxiNumber = prompt("Enter Taxi Number (e.g., T123):", taxiNumber || "");
-  if (!taxiNumber) alert("Taxi number is required to go online");
+const statusEl = document.getElementById("status");
+const requestSound = new Audio("assets/sounds/request.mp3");
+
+function enterTaxiDetails() {
+  taxiNumber = prompt("Enter Taxi Number (e.g., T123)", taxiNumber || "");
+  const s = prompt("Enter number of seats", seats);
+  seats = parseInt(s) || seats;
 }
 
 function initMap(lat, lng) {
@@ -36,6 +41,7 @@ function updateLocation() {
         lng: lng,
         online: true,
         taxiNumber: taxiNumber,
+        seats: seats,
         updatedAt: Date.now()
       });
     },
@@ -46,7 +52,7 @@ function updateLocation() {
 
 function goOnline() {
   if (!navigator.geolocation) { alert("GPS not supported"); return; }
-  enterTaxiNumber();
+  enterTaxiDetails();
   if (!taxiNumber) return;
 
   statusEl.innerText = `🟢 ONLINE - ${taxiNumber}`;
@@ -55,6 +61,8 @@ function goOnline() {
 
   updateLocation();
   gpsInterval = setInterval(updateLocation, 5000);
+
+  listenRequests();
 }
 
 function goOffline() {
@@ -67,4 +75,35 @@ function goOffline() {
   statusEl.innerText = "🔴 OFFLINE";
   statusEl.style.background = "#900";
   statusEl.style.color = "#fff";
+  activeRequestId = null;
+}
+
+function listenRequests() {
+  firebase.database().ref("requests").on("value", snapshot => {
+    const requests = snapshot.val() || {};
+
+    for (const reqId in requests) {
+      const r = requests[reqId];
+      if (r.driverId !== driverId) continue; // ignore other drivers
+      if (activeRequestId && activeRequestId !== reqId) continue; // already busy
+
+      if (r.status === "pending") {
+        requestSound.play();
+
+        const accept = confirm(`Passenger ${r.passengerId} wants a ride. Accept?`);
+        if (accept) {
+          firebase.database().ref("requests/" + reqId).update({ status: "accepted" });
+          activeRequestId = reqId;
+          statusEl.innerText = `🟢 ONLINE - ${taxiNumber} (Busy)`;
+        } else {
+          firebase.database().ref("requests/" + reqId).update({ status: "rejected" });
+        }
+      }
+
+      if (r.status === "completed" || r.status === "cancelled") {
+        if (activeRequestId === reqId) activeRequestId = null;
+        statusEl.innerText = `🟢 ONLINE - ${taxiNumber}`;
+      }
+    }
+  });
 }

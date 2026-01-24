@@ -1,6 +1,12 @@
 let map;
 let driverMarkers = {};
+let passengerId = "passenger_" + Math.floor(Math.random() * 1000000);
 let passengerLatLng;
+let activeRequest = null; // currently active request
+let rejectedDrivers = {}; // {driverId: timestamp}
+
+// sounds
+const acceptedSound = new Audio("assets/sounds/accepted.mp3");
 
 navigator.geolocation.getCurrentPosition(
   pos => initMap(pos),
@@ -25,6 +31,7 @@ function initMap(pos) {
   }).addTo(map);
 
   listenDrivers();
+  listenRequests();
 }
 
 function listenDrivers() {
@@ -44,17 +51,17 @@ function listenDrivers() {
 
       if (driverMarkers[id]) {
         driverMarkers[id].setLatLng(latlng);
-        driverMarkers[id].getPopup().setContent(`
-          🚕 ${d.taxiNumber || "Taxi"}<br>
-          <button onclick="hailTaxi('${id}')">Hail</button>
-        `);
+        driverMarkers[id].getPopup().setContent(
+          `<b>🚕 ${d.taxiNumber || "Taxi"}</b> (${d.seats || "N/A"} seats)<br>
+          <button onclick="hailTaxi('${id}')">Hail</button>`
+        );
       } else {
         driverMarkers[id] = L.marker(latlng)
           .addTo(map)
-          .bindPopup(`
-            🚕 ${d.taxiNumber || "Taxi"}<br>
-            <button onclick="hailTaxi('${id}')">Hail</button>
-          `);
+          .bindPopup(
+            `<b>🚕 ${d.taxiNumber || "Taxi"}</b> (${d.seats || "N/A"} seats)<br>
+            <button onclick="hailTaxi('${id}')">Hail</button>`
+          );
       }
     }
 
@@ -63,5 +70,58 @@ function listenDrivers() {
 }
 
 function hailTaxi(driverId) {
-  alert("Hail sent to " + driverId + " (next step)");
+  const now = Date.now();
+
+  if (activeRequest) {
+    alert("You already have an active request!");
+    return;
+  }
+
+  if (rejectedDrivers[driverId] && now - rejectedDrivers[driverId] < 60000) {
+    alert("Please wait 1 minute before requesting the same driver again.");
+    return;
+  }
+
+  const requestRef = firebase.database().ref("requests").push();
+  activeRequest = {
+    id: requestRef.key,
+    driverId: driverId,
+    status: "pending",
+    timestamp: now
+  };
+
+  requestRef.set({
+    passengerId: passengerId,
+    driverId: driverId,
+    status: "pending",
+    timestamp: now
+  });
+
+  alert("Request sent!");
+}
+
+function listenRequests() {
+  firebase.database().ref("requests").on("value", snapshot => {
+    const requests = snapshot.val() || {};
+
+    for (const reqId in requests) {
+      const r = requests[reqId];
+
+      // check if request belongs to this passenger
+      if (r.passengerId === passengerId) {
+        if (r.status === "accepted" && activeRequest && activeRequest.id === reqId) {
+          acceptedSound.play();
+          alert(`Driver accepted your request: ${r.driverId}`);
+        }
+        if ((r.status === "cancelled" || r.status === "completed") && activeRequest && activeRequest.id === reqId) {
+          activeRequest = null;
+        }
+        if (r.status === "rejected" && activeRequest && activeRequest.id === reqId) {
+          activeRequest = null;
+          rejectedDrivers[r.driverId] = Date.now();
+          alert(`Driver ${r.driverId} rejected your request. Wait 1 minute to request again.`);
+        }
+      }
+    }
+  });
 }
