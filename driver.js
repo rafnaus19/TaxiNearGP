@@ -65,6 +65,7 @@ function goOnline() {
   listenRequests();
 }
 
+// Offline function
 function goOffline() {
   if (gpsInterval) clearInterval(gpsInterval);
   firebase.database().ref("drivers/" + driverId).update({
@@ -77,6 +78,11 @@ function goOffline() {
   statusEl.style.color = "#fff";
   activeRequestId = null;
 }
+
+// Auto offline if tab/browser closed
+window.addEventListener("beforeunload", () => {
+  firebase.database().ref("drivers/" + driverId).update({ online:false });
+});
 
 function listenRequests() {
   firebase.database().ref("requests").on("value", snapshot => {
