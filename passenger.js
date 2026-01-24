@@ -1,81 +1,61 @@
-let map,myMarker,requestId=null;
-let driverMarkers={};
+// passenger.js
 
-// Init map
-navigator.geolocation.getCurrentPosition(pos=>{
-  map = L.map("map").setView([pos.coords.latitude,pos.coords.longitude],15);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-  myMarker=L.circle([pos.coords.latitude,pos.coords.longitude],{radius:30,color:'blue',fillOpacity:0.5}).addTo(map);
-});
+let map;
+let driverMarkers = {};
 
-// Update online drivers
-function updateDrivers(snapshot){
-  const drivers = snapshot.val()||{};
-  let onlineCount=0;
+navigator.geolocation.getCurrentPosition(
+  pos => initMap(pos),
+  () => alert("Please allow location access")
+);
 
-  for(let id in driverMarkers){
-    map.removeLayer(driverMarkers[id]);
-  }
-  driverMarkers={};
+function initMap(pos) {
+  const lat = pos.coords.latitude;
+  const lng = pos.coords.longitude;
 
-  for(let id in drivers){
-    const v=drivers[id];
-    if(!v) continue;
-    const isOnline = (v.online===true || v.online==="true");
-    const lat=parseFloat(v.lat);
-    const lng=parseFloat(v.lng);
-    if(!isOnline || isNaN(lat) || isNaN(lng)) continue;
+  map = L.map("map", { zoomControl: false }).setView([lat, lng], 15);
 
-    onlineCount++;
+  L.control.zoom({ position: "bottomright" }).addTo(map);
 
-    const popup=document.createElement("div");
-    popup.innerHTML=`Taxi: ${v.taxiNumber}<br>Seats: ${v.seats}<br>Type: ${v.type}`;
-    const hailBtn=document.createElement("button");
-    hailBtn.textContent="Hail";
-    hailBtn.onclick=()=>hailDriver(id);
-    popup.appendChild(hailBtn);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19
+  }).addTo(map);
 
-    const marker=L.marker([lat,lng]).addTo(map).bindPopup(popup);
-    driverMarkers[id]=marker;
-  }
+  // Passenger location
+  L.circle([lat, lng], {
+    radius: 60,
+    color: "blue",
+    fillOpacity: 0.4
+  }).addTo(map);
 
-  document.getElementById("onlineCount").textContent=`Online taxis: ${onlineCount}`;
+  listenDrivers();
 }
 
-firebase.database().ref("drivers").on("value",updateDrivers);
+function listenDrivers() {
+  firebase.database().ref("drivers").on("value", snapshot => {
+    const drivers = snapshot.val() || {};
+    let onlineCount = 0;
 
-// Hail driver
-function hailDriver(driverId){
-  if(requestId) return alert("You already requested a taxi!");
-  navigator.geolocation.getCurrentPosition(pos=>{
-    requestId="req_"+Date.now();
-    const passengerId="passenger_"+Date.now();
+    // Clear old markers
+    Object.values(driverMarkers).forEach(m => map.removeLayer(m));
+    driverMarkers = {};
 
-    firebase.database().ref("requests/"+requestId).set({
-      lat:pos.coords.latitude,
-      lng:pos.coords.longitude,
-      time:Date.now(),
-      passenger:passengerId,
-      driver:driverId
-    });
+    for (const id in drivers) {
+      const d = drivers[id];
+      if (!d) continue;
+      if (d.online !== true) continue;
+      if (typeof d.lat !== "number") continue;
+      if (typeof d.lng !== "number") continue;
 
-    alert("Request sent to Taxi "+driverId);
+      onlineCount++;
+
+      const marker = L.marker([d.lat, d.lng])
+        .addTo(map)
+        .bindPopup("🚕 Taxi Online");
+
+      driverMarkers[id] = marker;
+    }
+
+    document.getElementById("onlineCount").innerText =
+      "Online taxis: " + onlineCount;
   });
 }
-
-// Listen for acceptance
-firebase.database().ref("requests").on("child_changed",snap=>{
-  const r=snap.val();
-  if(requestId && r.driver){
-    document.getElementById("acceptedSound").play();
-    alert(`Taxi ${r.driver} accepted your request!`);
-  }
-});
-
-// Listen for cancel
-firebase.database().ref("requests").on("child_removed",snap=>{
-  if(requestId && snap.key===requestId){
-    requestId=null;
-    alert("Your taxi request was cancelled.");
-  }
-});
