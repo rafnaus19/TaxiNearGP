@@ -2,8 +2,8 @@ let map;
 let driverMarkers = {};
 let passengerId = "passenger_" + Math.floor(Math.random()*1000000);
 let passengerLatLng;
-let activeRequest = null;
-let rejectedDrivers = {};
+let activeRequest = null; // passenger can only have 1 active request
+let rejectedDrivers = {}; // store cooldown timestamps
 const acceptedSound = new Audio("assets/sounds/accepted.mp3");
 
 navigator.geolocation.getCurrentPosition(pos => initMap(pos), () => alert("Please allow location access"));
@@ -20,6 +20,17 @@ function initMap(pos){
   listenRequests();
 }
 
+function getMarkerColor(type){
+  switch(type){
+    case "regular": return "yellow";
+    case "luxury": return "gold";
+    case "maxi6": return "orange";
+    case "maxi12": return "red";
+    default: return "blue";
+  }
+}
+
+// Listen for driver updates
 function listenDrivers(){
   firebase.database().ref("drivers").on("value", snapshot => {
     const drivers = snapshot.val() || {};
@@ -37,23 +48,31 @@ function listenDrivers(){
 
       onlineCount++;
       const latlng = [d.lat, d.lng];
+      const wheelchairText = d.wheelchair ? "Yes" : "No";
+      const color = getMarkerColor(d.taxiType);
+
+      // Check cooldown for rejected driver
+      const now = Date.now();
+      const isRejected = rejectedDrivers[id] && now - rejectedDrivers[id] < 60000; // 1 minute cooldown
+      const hailButton = activeRequest || isRejected ? `<button disabled>Hail</button>` : `<button onclick="hailTaxi('${id}')">Hail</button>`;
 
       const popupContent = `
-        <b>🚕 ${d.taxiNumber || "Taxi"}</b><br>
+        <b style="color:${color}">🚕 ${d.taxiNumber || "Taxi"}</b><br>
         Seats: ${d.seats || "N/A"}<br>
         Type: ${d.taxiType || "regular"}<br>
-        Wheelchair: ${d.wheelchair ? "Yes":"No"}<br>
-        <button onclick="hailTaxi('${id}')">Hail</button>
-        <button onclick="cancelRequest()">Cancel</button>
+        Wheelchair: ${wheelchairText}<br>
+        ${hailButton}
       `;
 
       if(driverMarkers[id]){
         driverMarkers[id].setLatLng(latlng);
         driverMarkers[id].getPopup().setContent(popupContent);
       } else {
-        driverMarkers[id] = L.marker(latlng)
-          .addTo(map)
-          .bindPopup(popupContent);
+        driverMarkers[id] = L.marker(latlng,{
+          icon: L.divIcon({className:"driverMarker",html:`<div style="background:${color};width:20px;height:20px;border-radius:50%;border:2px solid #fff;"></div>`})
+        })
+        .addTo(map)
+        .bindPopup(popupContent);
       }
     }
 
@@ -61,65 +80,83 @@ function listenDrivers(){
   });
 }
 
-function hailTaxi(driverId){
-  const now = Date.now();
-
-  if(activeRequest){
-    alert("You already have an active request!");
-    return;
-  }
-
-  if(rejectedDrivers[driverId] && now - rejectedDrivers[driverId] < 60000){
-    alert("Wait 1 minute before requesting the same driver again.");
-    return;
-  }
-
-  const requestRef = firebase.database().ref("requests").push();
-  activeRequest = {id: requestRef.key, driverId, status:"pending", timestamp: now};
-
-  requestRef.set({
-    passengerId: passengerId,
-    driverId: driverId,
-    lat: passengerLatLng[0],
-    lng: passengerLatLng[1],
-    status: "pending",
-    timestamp: now
-  });
-
-  alert("Request sent!");
-}
-
-function cancelRequest(){
-  if(activeRequest){
-    firebase.database().ref("requests/"+activeRequest.id).update({status:"cancelled"});
-    activeRequest = null;
-    alert("Active request cancelled");
-  } else {
-    alert("No active request to cancel");
-  }
-}
-
+// Listen for request status changes
 function listenRequests(){
-  firebase.database().ref("requests").on("value", snapshot => {
+  firebase.database().ref("requests").on("value", snapshot=>{
     const requests = snapshot.val() || {};
+    activeRequest = null;
+
     for(const reqId in requests){
       const r = requests[reqId];
       if(r.passengerId !== passengerId) continue;
 
-      if(r.status === "accepted" && activeRequest && activeRequest.id === reqId){
+      if(r.status==="pending" || r.status==="accepted"){
+        activeRequest = r.driverId;
+      }
+
+      if(r.status==="accepted"){
         acceptedSound.play();
-        alert(`Driver ${r.driverId} accepted your request!`);
+        alert("Your request was accepted by driver " + r.driverId);
       }
 
-      if((r.status==="completed" || r.status==="cancelled") && activeRequest && activeRequest.id === reqId){
-        activeRequest = null;
+      if(r.status==="rejected"){
+        rejectedDrivers[r.driverId] = Date.now(); // start 1 minute cooldown
+        if(activeRequest === r.driverId) activeRequest = null;
+        alert("Driver " + r.driverId + " rejected your request. You must wait 1 minute to request again.");
       }
 
-      if(r.status==="rejected" && activeRequest && activeRequest.id === reqId){
-        activeRequest = null;
-        rejectedDrivers[r.driverId] = Date.now();
-        alert(`Driver ${r.driverId} rejected your request. Wait 1 minute to request same driver.`);
+      if(r.status==="cancelled" || r.status==="completed"){
+        if(activeRequest === r.driverId) activeRequest = null;
       }
     }
+
+    // Refresh driver popups to enable/disable hail button
+    for(const id in driverMarkers){
+      const dRef = firebase.database().ref("drivers/"+id);
+      dRef.once("value").then(snap=>{
+        const d = snap.val();
+        if(!d) return;
+        const latlng = [d.lat, d.lng];
+        const wheelchairText = d.wheelchair ? "Yes" : "No";
+        const color = getMarkerColor(d.taxiType);
+        const now = Date.now();
+        const isRejected = rejectedDrivers[id] && now - rejectedDrivers[id] < 60000;
+        const hailButton = activeRequest || isRejected ? `<button disabled>Hail</button>` : `<button onclick="hailTaxi('${id}')">Hail</button>`;
+
+        const popupContent = `
+          <b style="color:${color}">🚕 ${d.taxiNumber || "Taxi"}</b><br>
+          Seats: ${d.seats || "N/A"}<br>
+          Type: ${d.taxiType || "regular"}<br>
+          Wheelchair: ${wheelchairText}<br>
+          ${hailButton}
+        `;
+        driverMarkers[id].getPopup().setContent(popupContent);
+      });
+    }
   });
+}
+
+// Hail a taxi
+function hailTaxi(driverId){
+  const now = Date.now();
+  if(activeRequest){
+    alert("You already have an active request. Wait until it's completed or cancelled.");
+    return;
+  }
+  if(rejectedDrivers[driverId] && now - rejectedDrivers[driverId] < 60000){
+    alert("You must wait 1 minute to request this driver again.");
+    return;
+  }
+
+  const requestRef = firebase.database().ref("requests").push();
+  requestRef.set({
+    passengerId: passengerId,
+    driverId: driverId,
+    status: "pending",
+    lat: passengerLatLng[0],
+    lng: passengerLatLng[1],
+    timestamp: Date.now()
+  });
+  activeRequest = driverId;
+  alert("Request sent to driver " + driverId);
 }

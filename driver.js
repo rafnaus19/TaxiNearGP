@@ -8,6 +8,7 @@ let isOnline = false;
 const statusTextEl = document.getElementById("statusText");
 const actionButton = document.getElementById("actionButton");
 const taxiTypeSelect = document.getElementById("taxiTypeSelect");
+const cancelBtn = document.querySelector("#status button:nth-child(3)");
 const requestSound = new Audio("assets/sounds/request.mp3");
 
 let heatLayer;
@@ -31,12 +32,13 @@ function updateLocation(){
         if(!map) initMap(lat,lng);
         else driverMarker.setLatLng([lat,lng]);
 
-        const taxiNumber = prompt("Enter Taxi Number", "T123") || "Taxi"; // or get from previous input if needed
-        const seats = 4; // you can add input for seats similarly if needed
+        const taxiNumber = prompt("Enter Taxi Number", "T123") || "Taxi"; 
+        const seats = 4; // can add input if needed
         const taxiType = taxiTypeSelect.value;
+        const wheelchair = false; // default
 
         firebase.database().ref("drivers/"+driverId).set({
-            lat, lng, online:true, taxiNumber, seats, taxiType, updatedAt:Date.now()
+            lat, lng, online:true, taxiNumber, seats, taxiType, wheelchair, updatedAt:Date.now()
         });
 
     }, err=>console.error("GPS error",err), {enableHighAccuracy:true, maximumAge:0, timeout:10000});
@@ -45,12 +47,13 @@ function updateLocation(){
 // Go Online
 function goOnline(){
     isOnline = true;
-    const taxiNumber = prompt("Enter Taxi Number", "T123") || "Taxi"; // optional prompt
-    statusTextEl.innerText = `🟢 ONLINE - ${taxiNumber}`;
+    statusTextEl.innerText = `🟢 ONLINE - ${taxiTypeSelect.value}`;
     statusTextEl.style.background = "#0a7d00";
     statusTextEl.style.color = "#fff";
     actionButton.innerText = "Go Offline";
     actionButton.onclick = goOffline;
+
+    cancelBtn.style.display = "none"; // hide cancel until active request
 
     updateLocation();
     gpsInterval = setInterval(updateLocation, 5000);
@@ -68,6 +71,7 @@ function goOffline(){
     actionButton.innerText = "Go Online";
     actionButton.onclick = goOnline;
     activeRequestId = null;
+    cancelBtn.style.display = "none";
 }
 
 // Cancel active request
@@ -76,9 +80,8 @@ function cancelRequest(){
         firebase.database().ref("requests/"+activeRequestId).update({status:"cancelled"});
         activeRequestId = null;
         statusTextEl.innerText = `🟢 ONLINE - ${taxiTypeSelect.value}`;
+        cancelBtn.style.display = "none";
         alert("Request cancelled");
-    } else {
-        alert("No active request to cancel");
     }
 }
 
@@ -105,14 +108,16 @@ function listenRequests(){
                     firebase.database().ref("requests/"+reqId).update({status:"accepted"});
                     activeRequestId = reqId;
                     statusTextEl.innerText = `🟢 ONLINE - ${taxiTypeSelect.value} (Busy)`;
+                    cancelBtn.style.display = "inline-block"; // show cancel button
                 } else {
                     firebase.database().ref("requests/"+reqId).update({status:"rejected"});
                 }
             }
 
             if(r.status==="completed" || r.status==="cancelled"){
-                if(activeRequestId===reqId) activeRequestId = null;
+                if(activeRequestId===reqId) activeRequestId=null;
                 statusTextEl.innerText = `🟢 ONLINE - ${taxiTypeSelect.value}`;
+                cancelBtn.style.display = "none";
             }
         }
         updateHeatMap();
