@@ -6,9 +6,27 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     html, body { margin:0; padding:0; height:100%; font-family:Arial,sans-serif;}
-    #status { height:50px; background:#111; color:#fff; display:flex; align-items:center; padding:0 12px; font-size:16px;}
+    #status {
+      height:50px; 
+      background:#111; 
+      color:#fff; 
+      display:flex; 
+      align-items:center; 
+      padding:0 12px; 
+      font-size:16px;
+      z-index:1000;
+      flex-wrap: wrap;
+    }
     #map { height: calc(100% - 50px); width:100%;}
-    button { margin-left:12px; padding:6px 12px; font-size:16px;}
+    #status button {
+      margin-left:12px; 
+      padding:6px 12px; 
+      font-size:16px; 
+      background:#333; 
+      color:#fff; 
+      border:none; 
+      border-radius:4px;
+    }
   </style>
 </head>
 <body>

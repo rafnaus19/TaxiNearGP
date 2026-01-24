@@ -2,10 +2,9 @@ let map;
 let driverMarkers = {};
 let passengerId = "passenger_" + Math.floor(Math.random() * 1000000);
 let passengerLatLng;
-let activeRequest = null; // currently active request
-let rejectedDrivers = {}; // {driverId: timestamp}
+let activeRequest = null;
+let rejectedDrivers = {};
 
-// sounds
 const acceptedSound = new Audio("assets/sounds/accepted.mp3");
 
 navigator.geolocation.getCurrentPosition(
@@ -107,7 +106,6 @@ function listenRequests() {
     for (const reqId in requests) {
       const r = requests[reqId];
 
-      // check if request belongs to this passenger
       if (r.passengerId === passengerId) {
         if (r.status === "accepted" && activeRequest && activeRequest.id === reqId) {
           acceptedSound.play();

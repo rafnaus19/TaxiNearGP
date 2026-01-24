@@ -4,7 +4,7 @@ let driverId = "driver_" + Math.floor(Math.random() * 1000000);
 let gpsInterval = null;
 let taxiNumber = "";
 let seats = 4;
-let activeRequestId = null; // only one active request at a time
+let activeRequestId = null;
 
 const statusEl = document.getElementById("status");
 const requestSound = new Audio("assets/sounds/request.mp3");
@@ -84,12 +84,11 @@ function listenRequests() {
 
     for (const reqId in requests) {
       const r = requests[reqId];
-      if (r.driverId !== driverId) continue; // ignore other drivers
-      if (activeRequestId && activeRequestId !== reqId) continue; // already busy
+      if (r.driverId !== driverId) continue;
+      if (activeRequestId && activeRequestId !== reqId) continue;
 
       if (r.status === "pending") {
         requestSound.play();
-
         const accept = confirm(`Passenger ${r.passengerId} wants a ride. Accept?`);
         if (accept) {
           firebase.database().ref("requests/" + reqId).update({ status: "accepted" });
