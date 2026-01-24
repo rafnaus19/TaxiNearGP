@@ -4,41 +4,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TaxiNear – Passenger</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<style>
-html, body {margin:0; padding:0; height:100%; font-family:Arial,sans-serif;}
-#map {height:100%; width:100%;}
-#onlineCount {
-    position:absolute; top:10px; left:10px; z-index:1000;
-    background:rgba(255,255,255,0.9); padding:6px 10px; border-radius:6px; font-weight:bold;
-    font-size:14px;
-}
-#legend {
-    position: absolute; top:10px; right:10px; 
-    background: rgba(255,255,255,0.9); padding: 8px 12px; 
-    border-radius: 6px; font-size: 14px; z-index: 1000;
-}
-#legend div span {width:12px;height:12px;display:inline-block;margin-right:4px;}
-</style>
+<link rel="stylesheet" href="style.css" />
 </head>
 <body>
-
 <div id="onlineCount">Online taxis: 0</div>
-
-<div id="legend">
-  <b>Taxi Types</b><br>
-  <div><span style="background:yellow;"></span>Regular</div>
-  <div><span style="background:gold;"></span>Luxury</div>
-  <div><span style="background:orange;"></span>Maxi6</div>
-  <div><span style="background:red;"></span>Maxi12</div>
-</div>
-
+<div id="statusBar">Status: No request yet</div>
 <div id="map"></div>
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 <script src="firebase.js"></script>
 <script src="passenger.js"></script>
-
 </body>
 </html>
