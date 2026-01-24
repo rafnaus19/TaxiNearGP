@@ -6,17 +6,43 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
 html, body {margin:0; padding:0; height:100%; font-family:Arial,sans-serif;}
-#status {height:60px; background:#111; color:#fff; display:flex; align-items:center; padding:0 12px; font-size:16px; flex-wrap: wrap;}
+#status {
+    height:60px;
+    background:#111;
+    color:#fff;
+    display:flex;
+    align-items:center;
+    padding:0 12px;
+    font-size:16px;
+    flex-wrap: wrap;
+}
 #map {height: calc(100% - 60px); width:100%;}
-#status button {margin-left:12px; padding:6px 12px; font-size:16px; background:#333; color:#fff; border:none; border-radius:4px;}
+#status button, #status select {
+    margin-left:12px;
+    padding:6px 12px;
+    font-size:16px;
+    background:#333;
+    color:#fff;
+    border:none;
+    border-radius:4px;
+}
 </style>
 </head>
 <body>
+
 <div id="status">
-  <span id="statusText">Status: OFFLINE</span>
-  <button id="actionButton" onclick="goOnline()">Go Online</button>
-  <button onclick="cancelRequest()" style="margin-left:auto;">Cancel Active Request</button>
+    <span id="statusText">Status: OFFLINE</span>
+    <button id="actionButton" onclick="goOnline()">Go Online</button>
+    <button onclick="cancelRequest()" style="margin-left:auto;">Cancel Active Request</button>
+    <!-- Added taxi type dropdown -->
+    <select id="taxiTypeSelect">
+        <option value="regular">Regular</option>
+        <option value="luxury">Luxury</option>
+        <option value="maxi6">Maxi6</option>
+        <option value="maxi12">Maxi12</option>
+    </select>
 </div>
+
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -25,5 +51,6 @@ html, body {margin:0; padding:0; height:100%; font-family:Arial,sans-serif;}
 <script src="firebase.js"></script>
 <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 <script src="driver.js"></script>
+
 </body>
 </html>
