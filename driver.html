@@ -6,50 +6,63 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
 html, body {margin:0; padding:0; height:100%; font-family:Arial,sans-serif;}
-#status {
-    height:60px;
-    background:#111;
-    color:#fff;
-    display:flex;
-    align-items:center;
-    padding:0 12px;
-    font-size:16px;
-    flex-wrap: wrap;
+#map {height:100%; width:100%;}
+#statusBar {
+    position:absolute; top:10px; left:10px; right:10px; z-index:1000;
+    display:flex; justify-content:space-between; align-items:center;
+    background:rgba(255,255,255,0.9); padding:8px 12px; border-radius:6px;
 }
-#map {height: calc(100% - 60px); width:100%;}
-#status button, #status select {
-    margin-left:12px;
-    padding:6px 12px;
-    font-size:16px;
-    background:#333;
-    color:#fff;
-    border:none;
-    border-radius:4px;
+#statusText {font-weight:bold; font-size:14px;}
+#statusBar button {padding:6px 10px; font-weight:bold; border:none; border-radius:4px; cursor:pointer;}
+#cancelRequestBtn {display:none; background:#f00; color:#fff;}
+/* Modal */
+#taxiModal {
+    display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.5); z-index:2000; justify-content:center; align-items:center;
 }
+#taxiModalContent {
+    background:#fff; padding:20px; border-radius:8px; width:90%; max-width:320px;
+}
+#taxiModalContent input, #taxiModalContent select {width:100%; margin:6px 0; padding:8px; font-size:14px;}
+#taxiModalContent button {width:100%; padding:10px; background:#0a7d00; color:#fff; font-weight:bold; border:none; border-radius:4px; cursor:pointer;}
 </style>
 </head>
 <body>
 
-<div id="status">
-    <span id="statusText">Status: OFFLINE</span>
-    <button id="actionButton" onclick="goOnline()">Go Online</button>
-    <button onclick="cancelRequest()" style="margin-left:auto;">Cancel Active Request</button>
-    <!-- Added taxi type dropdown -->
-    <select id="taxiTypeSelect">
-        <option value="regular">Regular</option>
-        <option value="luxury">Luxury</option>
-        <option value="maxi6">Maxi6</option>
-        <option value="maxi12">Maxi12</option>
-    </select>
+<div id="statusBar">
+  <div id="statusText">🔴 OFFLINE</div>
+  <div>
+    <button id="toggleOnline">Go Online</button>
+    <button id="cancelRequestBtn">Cancel Active Request</button>
+  </div>
 </div>
 
 <div id="map"></div>
+
+<!-- Taxi Info Modal -->
+<div id="taxiModal">
+  <div id="taxiModalContent">
+    <h3>Enter Taxi Info</h3>
+    <input type="text" id="taxiNumberInput" placeholder="Taxi Number (e.g., T123)" required>
+    <select id="taxiTypeSelect">
+      <option value="regular">Regular</option>
+      <option value="luxury">Luxury</option>
+      <option value="maxi6">Maxi6</option>
+      <option value="maxi12">Maxi12</option>
+    </select>
+    <input type="number" id="seatsInput" placeholder="Number of seats" min="1" required>
+    <select id="wheelchairSelect">
+      <option value="false">Wheelchair: No</option>
+      <option value="true">Wheelchair: Yes</option>
+    </select>
+    <button id="taxiSubmitBtn">Proceed</button>
+  </div>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 <script src="firebase.js"></script>
-<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 <script src="driver.js"></script>
 
 </body>

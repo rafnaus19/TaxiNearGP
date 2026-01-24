@@ -1,19 +1,21 @@
 let map;
 let driverMarker;
-let driverId = "driver_" + Math.floor(Math.random() * 1000000);
+let driverId = "driver_" + Math.floor(Math.random()*1000000);
 let gpsInterval = null;
-let activeRequestId = null;
+let activeRequest = null;
 let isOnline = false;
+let taxiInfo = null;
 
 const statusTextEl = document.getElementById("statusText");
-const actionButton = document.getElementById("actionButton");
-const taxiTypeSelect = document.getElementById("taxiTypeSelect");
-const cancelBtn = document.querySelector("#status button:nth-child(3)");
-const requestSound = new Audio("assets/sounds/request.mp3");
+const toggleBtn = document.getElementById("toggleOnline");
+const cancelBtn = document.getElementById("cancelRequestBtn");
 
-let heatLayer;
-let heatPoints = [];
-const HEAT_FADE_MINUTES = 10;
+const taxiModal = document.getElementById("taxiModal");
+const taxiNumberInput = document.getElementById("taxiNumberInput");
+const taxiTypeSelect = document.getElementById("taxiTypeSelect");
+const seatsInput = document.getElementById("seatsInput");
+const wheelchairSelect = document.getElementById("wheelchairSelect");
+const taxiSubmitBtn = document.getElementById("taxiSubmitBtn");
 
 // Initialize map
 function initMap(lat,lng){
@@ -23,7 +25,7 @@ function initMap(lat,lng){
     driverMarker = L.marker([lat,lng]).addTo(map).bindPopup("Your Taxi");
 }
 
-// Update driver location
+// Update location to Firebase
 function updateLocation(){
     navigator.geolocation.getCurrentPosition(pos=>{
         const lat = pos.coords.latitude;
@@ -32,105 +34,122 @@ function updateLocation(){
         if(!map) initMap(lat,lng);
         else driverMarker.setLatLng([lat,lng]);
 
-        const taxiNumber = prompt("Enter Taxi Number", "T123") || "Taxi"; 
-        const seats = 4; // can add input if needed
-        const taxiType = taxiTypeSelect.value;
-        const wheelchair = false; // default
-
-        firebase.database().ref("drivers/"+driverId).set({
-            lat, lng, online:true, taxiNumber, seats, taxiType, wheelchair, updatedAt:Date.now()
+        firebase.database().ref("drivers/"+driverId).update({
+            lat, lng, online:true, updatedAt:Date.now()
         });
-
-    }, err=>console.error("GPS error",err), {enableHighAccuracy:true, maximumAge:0, timeout:10000});
+    }, err=>console.error(err), {enableHighAccuracy:true, maximumAge:0, timeout:10000});
 }
 
-// Go Online
+// Go Online workflow
+toggleBtn.onclick = () => {
+    if(!isOnline){
+        if(!taxiInfo){
+            taxiModal.style.display = "flex"; // show modal
+            return;
+        }
+        goOnline();
+    } else {
+        goOffline();
+    }
+};
+
+// Submit taxi info modal
+taxiSubmitBtn.onclick = () => {
+    const taxiNumber = taxiNumberInput.value.trim();
+    const taxiType = taxiTypeSelect.value;
+    const seats = parseInt(seatsInput.value) || 4;
+    const wheelchair = wheelchairSelect.value === "true";
+
+    if(!taxiNumber){
+        alert("Please enter Taxi Number");
+        return;
+    }
+
+    taxiInfo = {taxiNumber, taxiType, seats, wheelchair};
+    taxiModal.style.display = "none";
+    goOnline();
+};
+
 function goOnline(){
     isOnline = true;
-    statusTextEl.innerText = `🟢 ONLINE - ${taxiTypeSelect.value}`;
-    statusTextEl.style.background = "#0a7d00";
-    statusTextEl.style.color = "#fff";
-    actionButton.innerText = "Go Offline";
-    actionButton.onclick = goOffline;
+    statusTextEl.innerText = `🟢 ONLINE - ${taxiInfo.taxiNumber}`;
+    statusTextEl.style.background = "#0a7d00"; statusTextEl.style.color="#fff";
+    toggleBtn.innerText = "Go Offline";
 
-    cancelBtn.style.display = "none"; // hide cancel until active request
+    cancelBtn.style.display = "none";
 
-    updateLocation();
-    gpsInterval = setInterval(updateLocation, 5000);
+    // Save initial driver info
+    navigator.geolocation.getCurrentPosition(pos=>{
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        if(!map) initMap(lat,lng);
+        else driverMarker.setLatLng([lat,lng]);
+
+        firebase.database().ref("drivers/"+driverId).set({
+            ...taxiInfo,
+            lat, lng,
+            online:true,
+            updatedAt:Date.now()
+        });
+
+    }, err=>console.error(err), {enableHighAccuracy:true, maximumAge:0, timeout:10000});
+
+    gpsInterval = setInterval(updateLocation,5000);
     listenRequests();
 }
 
-// Go Offline
 function goOffline(){
     isOnline = false;
     if(gpsInterval) clearInterval(gpsInterval);
-    firebase.database().ref("drivers/"+driverId).update({online:false,updatedAt:Date.now()});
+    firebase.database().ref("drivers/"+driverId).update({online:false, updatedAt:Date.now()});
     statusTextEl.innerText = "🔴 OFFLINE";
-    statusTextEl.style.background="#900";
-    statusTextEl.style.color="#fff";
-    actionButton.innerText = "Go Online";
-    actionButton.onclick = goOnline;
-    activeRequestId = null;
+    statusTextEl.style.background = "#900"; statusTextEl.style.color="#fff";
+    toggleBtn.innerText = "Go Online";
     cancelBtn.style.display = "none";
+    activeRequest = null;
 }
 
 // Cancel active request
-function cancelRequest(){
-    if(activeRequestId){
-        firebase.database().ref("requests/"+activeRequestId).update({status:"cancelled"});
-        activeRequestId = null;
-        statusTextEl.innerText = `🟢 ONLINE - ${taxiTypeSelect.value}`;
+cancelBtn.onclick = () => {
+    if(activeRequest){
+        firebase.database().ref("requests/"+activeRequest).update({status:"cancelled"});
+        activeRequest = null;
         cancelBtn.style.display = "none";
+        statusTextEl.innerText = `🟢 ONLINE - ${taxiInfo.taxiNumber}`;
         alert("Request cancelled");
     }
-}
+};
 
 // Listen for requests
 function listenRequests(){
     firebase.database().ref("requests").on("value", snapshot=>{
         const requests = snapshot.val() || {};
-        heatPoints = heatPoints.filter(p=>Date.now()-p.timestamp<HEAT_FADE_MINUTES*60000);
 
         for(const reqId in requests){
             const r = requests[reqId];
-
-            if(r.status==="pending" && r.lat && r.lng){
-                heatPoints.push([r.lat,r.lng,0.5,Date.now()]);
-            }
-
             if(r.driverId !== driverId) continue;
-            if(activeRequestId && activeRequestId !== reqId) continue;
+            if(activeRequest && activeRequest!==reqId) continue;
 
             if(r.status==="pending"){
-                requestSound.play();
                 const accept = confirm(`Passenger ${r.passengerId} wants a ride. Accept?`);
                 if(accept){
                     firebase.database().ref("requests/"+reqId).update({status:"accepted"});
-                    activeRequestId = reqId;
-                    statusTextEl.innerText = `🟢 ONLINE - ${taxiTypeSelect.value} (Busy)`;
-                    cancelBtn.style.display = "inline-block"; // show cancel button
+                    activeRequest = reqId;
+                    statusTextEl.innerText = `🟢 ONLINE - ${taxiInfo.taxiNumber} (Busy)`;
+                    cancelBtn.style.display = "inline-block";
                 } else {
                     firebase.database().ref("requests/"+reqId).update({status:"rejected"});
                 }
             }
 
             if(r.status==="completed" || r.status==="cancelled"){
-                if(activeRequestId===reqId) activeRequestId=null;
-                statusTextEl.innerText = `🟢 ONLINE - ${taxiTypeSelect.value}`;
+                if(activeRequest===reqId) activeRequest=null;
                 cancelBtn.style.display = "none";
+                statusTextEl.innerText = `🟢 ONLINE - ${taxiInfo.taxiNumber}`;
             }
         }
-        updateHeatMap();
     });
 }
 
-// Update heatmap
-function updateHeatMap(){
-    if(heatLayer) map.removeLayer(heatLayer);
-    const now = Date.now();
-    const points = heatPoints.filter(p=>now-p[3]<HEAT_FADE_MINUTES*60000).map(p=>[p[0],p[1],p[2]]);
-    heatLayer = L.heatLayer(points,{radius:25,blur:15,maxZoom:17}).addTo(map);
-}
-
-// Unload cleanup
+// Cleanup on unload
 window.addEventListener("beforeunload",()=>{firebase.database().ref("drivers/"+driverId).update({online:false});});
