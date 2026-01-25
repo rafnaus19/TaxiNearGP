@@ -1,109 +1,69 @@
 let map;
-let driverMarkers = {};
-let passengerLatLng = null;
+let markers = {};
+let passengerLatLng;
 
-const passengerId = "passenger_" + Math.floor(Math.random()*1000000);
-const statusBar = document.getElementById("statusBar");
+const statusBar = document.getElementById("passengerStatus");
+const countBox = document.getElementById("count");
 
-// Get location and load map
-navigator.geolocation.getCurrentPosition(
-  pos => initMap(pos.coords.latitude, pos.coords.longitude),
-  () => alert("Please allow location access")
-);
+// Load map immediately
+map = L.map("map").setView([0,0], 2);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19
+}).addTo(map);
 
-function initMap(lat, lng){
-  passengerLatLng = [lat, lng];
+// Passenger location
+navigator.geolocation.watchPosition(pos => {
+  passengerLatLng = [pos.coords.latitude, pos.coords.longitude];
+  map.setView(passengerLatLng, 15);
 
-  // Create map
-  map = L.map("map").setView(passengerLatLng, 15);
+  if (!window.pMarker) {
+    window.pMarker = L.circle(passengerLatLng, {
+      radius: 40,
+      color: "blue",
+      fillOpacity: 0.4
+    }).addTo(map);
+  } else {
+    window.pMarker.setLatLng(passengerLatLng);
+  }
+});
 
-  // Tiles
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-    subdomains: "abcd",
-    maxZoom: 19
-  }).addTo(map);
+// Listen online drivers only
+firebase.database()
+  .ref("drivers")
+  .orderByChild("online")
+  .equalTo(true)
+  .on("value", snap => {
 
-  // Passenger marker
-  L.circle(passengerLatLng, {
-    radius: 50,
-    color: "blue",
-    fillOpacity: 0.4
-  }).addTo(map);
+    const drivers = snap.val() || {};
+    let count = 0;
 
-  listenDrivers();
-}
-
-// Marker colors
-function taxiColor(type){
-  if(type === "regular") return "yellow";
-  if(type === "luxury") return "gold";
-  if(type === "maxi6") return "orange";
-  if(type === "maxi12") return "red";
-  return "blue";
-}
-
-// Listen online taxis
-function listenDrivers(){
-  firebase.database().ref("drivers").on("value", snapshot => {
-
-    const drivers = snapshot.val() || {};
-    let onlineCount = 0;
-
-    for(const id in drivers){
+    for (const id in drivers) {
       const d = drivers[id];
-
-      // Remove offline
-      if(!d || !d.online){
-        if(driverMarkers[id]){
-          map.removeLayer(driverMarkers[id]);
-          delete driverMarkers[id];
-        }
-        continue;
-      }
-
-      onlineCount++;
+      count++;
 
       const latlng = [d.lat, d.lng];
-      const color = taxiColor(d.taxiType || "regular");
-
       const popup = `
-        <b>🚕 ${d.taxiNumber || id}</b><br>
-        Type: ${d.taxiType || "regular"}<br>
-        Seats: ${d.seats || 4}<br>
-        Wheelchair: ${d.wheelchair ? "Yes" : "No"}<br><br>
-        <button onclick="hailTaxi('${id}')">Hail</button>
+        <b>${d.taxiNumber}</b><br>
+        Seats: ${d.seats}<br>
+        <button onclick="hail('${id}')">Hail</button>
       `;
 
-      // Update marker
-      if(driverMarkers[id]){
-        driverMarkers[id].setLatLng(latlng);
-        driverMarkers[id].getPopup().setContent(popup);
+      if (markers[id]) {
+        markers[id].setLatLng(latlng);
       } else {
-        driverMarkers[id] = L.marker(latlng, {
-          icon: L.divIcon({
-            html:`<div style="width:18px;height:18px;background:${color};border-radius:50%;border:2px solid white;"></div>`
-          })
-        }).addTo(map).bindPopup(popup);
+        markers[id] = L.marker(latlng).addTo(map).bindPopup(popup);
       }
     }
 
-    document.getElementById("onlineCount").innerText = "Online taxis: " + onlineCount;
+    countBox.innerText = "Online: " + count;
   });
-}
 
-// Send request
-function hailTaxi(driverId){
-  statusBar.innerText = "Status: Requesting...";
-
-  const ref = firebase.database().ref("requests").push();
-  ref.set({
-    passengerId,
+function hail(driverId) {
+  statusBar.innerText = "Requesting taxi...";
+  firebase.database().ref("requests").push({
     driverId,
     lat: passengerLatLng[0],
     lng: passengerLatLng[1],
-    status: "pending",
-    timestamp: Date.now()
+    time: Date.now()
   });
-
-  alert("Hail request sent to taxi");
 }
