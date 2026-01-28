@@ -5,7 +5,7 @@ let passengerLatLng;
 const statusBar = document.getElementById("passengerStatus");
 const countBox = document.getElementById("count");
 
-// Load map immediately
+// Map
 map = L.map("map").setView([0,0], 2);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19
@@ -27,7 +27,7 @@ navigator.geolocation.watchPosition(pos => {
   }
 });
 
-// Listen online drivers only
+// Listen only online drivers
 firebase.database()
   .ref("drivers")
   .orderByChild("online")
@@ -35,16 +35,32 @@ firebase.database()
   .on("value", snap => {
 
     const drivers = snap.val() || {};
+    const now = Date.now();
     let count = 0;
 
+    // Remove ghost markers
+    for (const id in markers) {
+      if (!drivers[id]) {
+        map.removeLayer(markers[id]);
+        delete markers[id];
+      }
+    }
+
+    // Add / update live drivers
     for (const id in drivers) {
       const d = drivers[id];
+
+      // Auto-hide stale drivers (older than 30 sec)
+      if (now - d.updatedAt > 30000) {
+        firebase.database().ref("drivers/" + id + "/online").set(false);
+        continue;
+      }
+
       count++;
 
       const latlng = [d.lat, d.lng];
       const popup = `
         <b>${d.taxiNumber}</b><br>
-        Seats: ${d.seats}<br>
         <button onclick="hail('${id}')">Hail</button>
       `;
 
@@ -58,12 +74,16 @@ firebase.database()
     countBox.innerText = "Online: " + count;
   });
 
-function hail(driverId) {
+// Send hail request
+function hail(driverId){
   statusBar.innerText = "Requesting taxi...";
+
   firebase.database().ref("requests").push({
     driverId,
     lat: passengerLatLng[0],
     lng: passengerLatLng[1],
     time: Date.now()
   });
+
+  new Audio("assets/sounds/accepted.mp3").play();
 }
